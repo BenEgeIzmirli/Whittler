@@ -1,0 +1,1 @@
+from modules.trufflehog import TrufflehogResult
