@@ -51,14 +51,17 @@ class NestedObjectPointerInterface:
     def __init__(self):
         self._cached_pointers = None
     
-    def enumerate_child_pointers(self, pointer_to_me):
-        raise NotImplementedError()
-
+    def flush_pointer_cache(self):
+        self._cached_pointers = None
+    
     def give_child_pointers(self, pointer_to_me):
         if not self._cached_pointers is None:
             return self._cached_pointers
         return self.enumerate_child_pointers(pointer_to_me)
     
+    def enumerate_child_pointers(self, pointer_to_me):
+        raise NotImplementedError()
+
     def size(self):
         raise NotImplementedError()
 
@@ -71,8 +74,6 @@ class NestedObjectPointerInterface:
     def export(self):
         raise NotImplementedError()
 
-    def flush_pointer_cache(self):
-        self._cached_pointers = None
 
 # ParentRelationship = namedtuple("ParentRelationship",["parent","vertex"])
 

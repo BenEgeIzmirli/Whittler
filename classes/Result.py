@@ -5,22 +5,28 @@ import hashlib
 import re
 
 
-class RelevanceInterface:
+class RelevanceInterface(NestedObjectPointerInterface):
 
-    def __init__(self):
-        self.relevant = True
+    @property
+    def relevant(self):
+        return any(result.relevant for result in self.real_iter_values())
 
     def mark_irrelevant(self):
-        raise NotImplementedError()
+        for obj in self.real_iter_values():
+            obj.mark_irrelevant()
 
     def mark_relevant(self):
-        raise NotImplementedError()
+        for obj in self.real_iter_values():
+            obj.mark_relevant()
 
     def real_length(self):
+        return len([e for e in self.real_iter_values()])
+
+    def real_iter_values(self):
         raise NotImplementedError()
 
 
-class Result(dict, RelevanceInterface, NestedObjectPointerInterface):
+class Result(dict, RelevanceInterface):
 
     FRIENDLY_NAME = NotImplemented
     
@@ -34,8 +40,8 @@ class Result(dict, RelevanceInterface, NestedObjectPointerInterface):
         self._cached_hash_valid = True
         self._frozen = False
         dict.__init__(self)
+        self._relevant = True
         RelevanceInterface.__init__(self)
-        NestedObjectPointerInterface.__init__(self)
 
         for k,v in resultdict.items():
             self[k] = v
@@ -101,55 +107,65 @@ class Result(dict, RelevanceInterface, NestedObjectPointerInterface):
     def display(self):
         print(self.pretty_repr())
     
+
+    #######################################
+    #  RelevanceInterface implementations
+    #
+
+    @property
+    def relevant(self):
+        return self._relevant
+    
+    def mark_irrelevant(self):
+        self._relevant = False
+
+    def mark_relevant(self):
+        self._relevant = True
+    
+    def real_iter_values(self):
+        return [self]
+    
+
+    #################################################
+    #  NestedObjectPointerInterface implementations
+    #
+    
+    def enumerate_child_pointers(self, pointer_to_me):
+        return OrderedDict({str(hash(self)):pointer_to_me})
+    
     def size(self):
         return 1
     
-    def give_child_pointers(self, pointer_to_me):
-        return OrderedDict({str(hash(self)):pointer_to_me})
-    
-    def mark_irrelevant(self):
-        self.relevant = False
+    def all_result_objects(self):
+        return [self]
 
-    def mark_relevant(self):
-        self.relevant = True
-    
-    def real_length(self):
-        return 1
-    
     def show_view(self, pointer_to_me=None, ct=0):
         return (self.pretty_repr(), pointer_to_me)
     
     def export(self):
         return self.original_resultdict
     
-    def all_result_objects(self):
-        return [self]
 
-
-class RelevanceFilteredResultList(list, RelevanceInterface, NestedObjectPointerInterface):
+class RelevanceFilteredResultList(list, RelevanceInterface):
     def __init__(self,iterable=None):
         list.__init__(self)
         RelevanceInterface.__init__(self)
-        NestedObjectPointerInterface.__init__(self)
         if not iterable is None:
             for e in iterable:
                 self.append(e)
     
     def __setitem__(self, index, value):
-        assert isinstance(value, (RelevanceInterface, NestedObjectPointerInterface))
+        assert isinstance(value, RelevanceInterface)
         list.__setitem__(self,index,value)
     
     def __iter__(self):
-        yield from (e for e in list.__iter__(self) if e.relevant)
+        yield from (e for e in self.real_iter_values() if e.relevant)
     
     def __len__(self):
         return len([e for e in self])
     
-    def size(self):
-        return len(self)
-    
     def append(self, newitem):
-        assert isinstance(newitem, (RelevanceInterface, NestedObjectPointerInterface))
+        assert isinstance(newitem, RelevanceInterface)
         list.append(self,newitem)
     
     def extend(self, iterable):
@@ -159,25 +175,23 @@ class RelevanceFilteredResultList(list, RelevanceInterface, NestedObjectPointerI
     def yield_irrelevant(self):
         yield from (e for e in list.__iter__(self) if not e.relevant)
     
-    def mark_relevant(self):
-        self.relevant = True
-        for e in list.__iter__(self):
-            e.mark_relevant()
-
-    def mark_irrelevant(self):
-        self.relevant = False
-        for e in list.__iter__(self):
-            e.mark_irrelevant()
-    
-    def real_length(self):
-        return list.__len__(self)
-    
     def get_by_id(self, result_id):
-        return list(filter(list.__iter__(self),key=lambda result:str(hash(result))[:6] == result_id))[0]
+        return list(filter(self.real_iter_values(),key=lambda result:str(hash(result))[:6] == result_id))[0]
     
-    def give_child_pointers(self, pointer_to_me):
-        if not self._cached_pointers is None:
-            return self._cached_pointers
+
+    #######################################
+    #  RelevanceInterface implementations
+    #
+    
+    def real_iter_values(self):
+        yield from list.__iter__(self)
+
+
+    #################################################
+    #  NestedObjectPointerInterface implementations
+    #
+    
+    def enumerate_child_pointers(self, pointer_to_me):
         ret = OrderedDict()
         for i in range(self.real_length()):
             if self[i].relevant:
@@ -191,6 +205,12 @@ class RelevanceFilteredResultList(list, RelevanceInterface, NestedObjectPointerI
             self._cached_pointers = ret
         return ret
     
+    def size(self):
+        return len(self)
+    
+    def all_result_objects(self):
+        return [result for result in self]
+
     def show_view(self, pointer_to_me=None, ct=0, limit=None):
         ret = OrderedDict()
         s = ""
@@ -214,11 +234,8 @@ class RelevanceFilteredResultList(list, RelevanceInterface, NestedObjectPointerI
     def export(self):
         return [result.export() for result in self]
     
-    def all_result_objects(self):
-        return [result for result in self]
 
-
-class ValueLengthSortedResultDict(defaultdict, RelevanceInterface, NestedObjectPointerInterface):
+class ValueLengthSortedResultDict(defaultdict, RelevanceInterface):
 
     def __init__(self, *args, **kwargs):
         defaultdict.__init__(self, *args, **kwargs)
@@ -234,32 +251,27 @@ class ValueLengthSortedResultDict(defaultdict, RelevanceInterface, NestedObjectP
     def values(self):
         yield from (v for k,v in self.items())
     
-    def size(self):
-        return sum(obj.size() for obj in self.values())
-    
     def __setitem__(self, key, value):
-        assert isinstance(value, (RelevanceInterface, NestedObjectPointerInterface))
+        assert isinstance(value, RelevanceInterface)
         defaultdict.__setitem__(self,key,value)
     
     def __len__(self):
         return len([obj for obj in self.values() if obj.relevant])
     
-    def mark_relevant(self):
-        self.relevant = True
-        for e in self.values():
-            e.mark_relevant()
 
-    def mark_irrelevant(self):
-        self.relevant = False
-        for e in self.values():
-            e.mark_irrelevant()
+    #######################################
+    #  RelevanceInterface implementations
+    #
     
-    def real_length(self):
-        return defaultdict.__len__(self)
+    def real_iter_values(self):
+        yield from (self[key] for key in defaultdict.__iter__(self))
     
-    def give_child_pointers(self, pointer_to_me):
-        if not self._cached_pointers is None:
-            return self._cached_pointers
+
+    #################################################
+    #  NestedObjectPointerInterface implementations
+    #
+    
+    def enumerate_child_pointers(self, pointer_to_me):
         ret = OrderedDict()
         for k in self.keys():
             ptr = pointer_to_me.copy()
@@ -268,6 +280,15 @@ class ValueLengthSortedResultDict(defaultdict, RelevanceInterface, NestedObjectP
         self._cached_pointers = ret
         return ret
     
+    def size(self):
+        return sum(obj.size() for obj in self.values())
+    
+    def all_result_objects(self):
+        ret = []
+        for resultcontainer in self.values():
+            ret.extend(resultcontainer.all_result_objects())
+        return ret
+
     def show_view(self, pointer_to_me=None, ct=0, limit=None):
         max_width = Config.MAX_OUTPUT_WIDTH
         ret = OrderedDict()
@@ -304,12 +325,6 @@ class ValueLengthSortedResultDict(defaultdict, RelevanceInterface, NestedObjectP
                 ret.extend(value.export())
         return ret
     
-    def all_result_objects(self):
-        ret = []
-        for resultcontainer in self.values():
-            ret.extend(resultcontainer.all_result_objects())
-        return ret
-
 
 class ResultDict(ValueLengthSortedResultDict):
     def __init__(self, parent_rdc=None):

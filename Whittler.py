@@ -1,3 +1,4 @@
+from classes.NestedObjectPointer import NestedObjectPointer
 from classes.ResultDatabase import ResultDatabase
 from classes.Result import Result, RelevanceFilteredResultList
 import modules
@@ -26,7 +27,8 @@ actions = {
         "game [[id]]" : "Play a game where individual results are presented one-by-one, and the user is asked whether "+\
                         "the result is relevant or not and why. Using this information, other similar results are also "+\
                         "eliminated in bulk. If [id] is specified, then the results presented are limited to the result "+\
-                        "group represented by the specified [id]."
+                        "group represented by the specified [id].",
+        "filter [str]" : "Mark all results containing [str] in a particular attribute as irrelevant (case-insensitive)"
     },
     "output" : {
         "quiet" : "Suppress an attribute from being displayed when printing out raw result data",
@@ -105,6 +107,48 @@ def select_attribute(resultdb, msg):
     wprint()
     index = int(winput(msg))
     return attrs[index]
+
+def group_interactive(resultdb, groupattr, groupval):
+    wprint("Creating a result group set based on this attribute value...")
+    SIMILARITY_THRESHOLD = Config.SIMILARITY_THRESHOLD
+    while True:
+        similar_results = resultdb.find_similar_results(groupattr, groupval)
+        wprint()
+        for val in sorted(set([res[groupattr] for res in similar_results])):
+            wprint(f"   {val.strip()}")
+        wprint()
+        wprint(f"I found {len(similar_results)} similar results with {groupattr} values as shown above.")
+        wprint("I want to create a result group set based on these findings, but I want to make sure it's OK.")
+        while True:
+            grouping_choice = winput("Is this grouping OK (1), too conservative (2), or too liberal (3)? Or, just abandon the group creation (4)? ")
+            bad_input = False
+            try:
+                grouping_choice = int(grouping_choice)
+                if grouping_choice not in [1,2,3,4]:
+                    bad_input = True
+            except:
+                bad_input = True
+            if bad_input:
+                wprint("I didn't understand your input.")
+                continue
+            break
+        if grouping_choice == 1:
+            pass
+        elif grouping_choice == 2:
+            SIMILARITY_THRESHOLD -= SIMILARITY_THRESHOLD / Config.SIMILARITY_THRESHOLD_MODIFICATION_FACTOR
+            continue
+        elif grouping_choice == 3:
+            SIMILARITY_THRESHOLD += (1 - SIMILARITY_THRESHOLD) / Config.SIMILARITY_THRESHOLD_MODIFICATION_FACTOR
+            continue
+        elif grouping_choice == 4:
+            wprint("OK, abandoning group creation.")
+            break
+        resultdb.register_grouped_results(groupattr, groupval, similar_results)
+        wprint("Created result set based on this entry.")
+        ptr = NestedObjectPointer(resultdb)
+        ptr.access_property("grouped_results")
+        ptr.get_by_index(groupval)
+        return ptr
 
 def get_and_parse_user_input():
     user_input = winput("Whittler > ")
@@ -186,58 +230,19 @@ def play_elimination_game(resultdb, obj):
         random_result.mark_irrelevant()
         num_results_eliminated = 1
         problematic_attr = select_attribute(resultdb, "Which attribute's value makes this result irrelevant? ")
-        specific_or_general = winput("Is it this specific value that makes it irrelevant (as opposed to the general gestalt of the value)? (Y/n) ")
-        specifically_problematic = specific_or_general.lower() != "n"
-        if specifically_problematic:
+        specific_or_general = winput("Should I create a group based on this value (Y)? Or is it this specific value that makes it irrelevant (n)? ")
+        make_group = specific_or_general.lower() != "n"
+        if not make_group:
             irrelevant_resultlist = resultdb.categorized_results[problematic_attr][random_result[problematic_attr]]
             num_results_eliminated = len(irrelevant_resultlist)
             irrelevant_resultlist.mark_irrelevant()
         else:
-            wprint("Creating a result group set based on this attribute value...")
-            SIMILARITY_THRESHOLD = Config.SIMILARITY_THRESHOLD
-            done = False
-            while True:
-                if done:
-                    break
-                similar_results = resultdb.find_similar_results(problematic_attr, random_result[problematic_attr])
-                wprint()
-                for val in sorted(set([res[problematic_attr] for res in similar_results])):
-                    wprint(f"   {val.strip()}")
-                wprint()
-                wprint(f"I found {len(similar_results)} similar results with {problematic_attr} values as shown above.")
-                wprint("I want to create a result group set based on these findings, but I want to make sure it's OK.")
-                while True:
-                    grouping_choice = winput("Is this grouping OK (1), too conservative (2), or too liberal (3)? Or, just abandon the group creation (4)? ")
-                    bad_input = False
-                    try:
-                        grouping_choice = int(grouping_choice)
-                        if grouping_choice not in [1,2,3,4]:
-                            bad_input = True
-                    except:
-                        bad_input = True
-                    if bad_input:
-                        wprint("I didn't understand your input.")
-                        continue
-                    break
-                if grouping_choice == 1:
-                    pass
-                elif grouping_choice == 2:
-                    SIMILARITY_THRESHOLD -= SIMILARITY_THRESHOLD / Config.SIMILARITY_THRESHOLD_MODIFICATION_FACTOR
-                    continue
-                elif grouping_choice == 3:
-                    SIMILARITY_THRESHOLD += (1 - SIMILARITY_THRESHOLD) / Config.SIMILARITY_THRESHOLD_MODIFICATION_FACTOR
-                    continue
-                elif grouping_choice == 4:
-                    wprint("OK, abandoning group creation.")
-                    break
-                resultdb.register_grouped_results(problematic_attr, random_result[problematic_attr], similar_results)
-                wprint("Created result set based on this entry.")
-                irrelevant_resultdict = resultdb.grouped_results[random_result[problematic_attr]]
-                print(type(irrelevant_resultdict))
-                num_results_eliminated = len(irrelevant_resultdict.all_result_objects())
-                irrelevant_resultdict.mark_irrelevant()
-                done = True
-
+            group_ptr = group_interactive(resultdb, problematic_attr, random_result[problematic_attr])
+            if group_ptr is None:
+                continue
+            irrelevant_resultdict = group_ptr.give_pointed_object()
+            num_results_eliminated = len(irrelevant_resultdict.all_result_objects())
+            irrelevant_resultdict.mark_irrelevant()
         excitement = num_results_eliminated//100
         report = f"\n > Eliminating {num_results_eliminated} results{'.' if not excitement else ''}{'!'*excitement}\n"
         if excitement >= 3:
@@ -332,15 +337,14 @@ def main_loop(resultdb):
                 continue
             obj = ptr.give_pointed_object()
             if isinstance(obj, resultdb.result_class):
-                grouping_attribute = select_attribute(resultdb, "Which attribute of this result would you like to group by? ")
-                grouping_value = obj[grouping_attribute]
-                resultdb.group_attribute_by_value(grouping_attribute, grouping_value)
+                group_attr = select_attribute(resultdb, "Which attribute of this result would you like to group by? ")
+                group_value = obj[group_attr]
             elif isinstance(obj, RelevanceFilteredResultList):
-                grouping_value = ptr.go_up_level().value
-                grouping_attribute = ptr.go_up_level().value
-                resultdb.group_attribute_by_value(grouping_attribute, grouping_value)
+                group_value = ptr.go_up_level().value
+                group_attr = ptr.go_up_level().value
             else:
                 raise NotImplementedError()
+            group_interactive(resultdb, group_attr, group_value)
             continue
         elif verb == "game":
             ptr = get_ptr_from_id_arg(resultdb, args)
@@ -352,6 +356,19 @@ def main_loop(resultdb):
                 obj = ptr.give_pointed_object()
             play_elimination_game(resultdb, obj)
             continue
+        elif verb == "filter":
+            if not len(args):
+                wprint("Need to provide a string to filter by.")
+            filtstr = args[0]
+            filter_attr = select_attribute(resultdb, "Which attribute would you like to filter by? ")
+            ct = 0
+            for result in resultdb.results:
+                if filtstr.lower() in result[filter_attr].lower():
+                    result.relevant = False
+                    ct += 1
+            wprint(f"Marked {ct} results as irrelevant using the filter.")
+            continue
+
         
         
         #####################

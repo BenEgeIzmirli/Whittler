@@ -1,4 +1,4 @@
-from classes.Result import Result, ResultDict, ResultDictContainer, RelevanceFilteredResultList
+from classes.Result import RelevanceInterface, Result, ResultDictContainer, RelevanceFilteredResultList
 from classes.NestedObjectPointer import NestedObjectPointer, NestedObjectPointerInterface
 from config import Config
 from collections import OrderedDict
@@ -8,19 +8,12 @@ import numpy as np
 import difflib
 
 
-# Grouping notes:
-# A good guide: https://itnext.io/string-similarity-the-basic-know-your-algorithms-guide-3de3d7346227
-# 
-# Ideas:
-#   - Replace all [a-zA-Z0-9] with 'A' and compute [Damerau-]Levenshtein distance
-
-
-
-class ResultDatabase(NestedObjectPointerInterface):
+class ResultDatabase(RelevanceInterface):
     
     def __init__(self, result_class=Result):
         assert issubclass(result_class, Result)
         NestedObjectPointerInterface.__init__(self)
+        RelevanceInterface.__init__(self)
         self.result_class = result_class
         self.results = RelevanceFilteredResultList()
         self.categorized_results = ResultDictContainer(self)
@@ -33,23 +26,7 @@ class ResultDatabase(NestedObjectPointerInterface):
     def __getitem__(self, nestedobjectpointer):
         assert nestedobjectpointer.base_object is self
         return nestedobjectpointer.give_pointed_object()
-    
-    def give_child_pointers(self, pointer_to_me):
-        if not self._cached_pointers is None:
-            return self._cached_pointers
-        ret = OrderedDict()
-        
-        ptr = self.root_pointer.copy()
-        ptr.access_property("categorized_results")
-        ret["categorized_results"] = ptr
-        
-        ptr = self.root_pointer.copy()
-        ptr.access_property("grouped_results")
-        ret["grouped_results"] = ptr
-        
-        self._cached_pointers = ret
-        return ret
-    
+
     def add_result(self, result):
         assert isinstance(result,self.result_class)
         if result in self.results:
@@ -59,21 +36,10 @@ class ResultDatabase(NestedObjectPointerInterface):
         for attr in self.result_class.ATTRIBUTES:
             self.categorized_results[attr][result[attr]].append(result)
 
-    def show_view(self, pointer_to_me=None, ct=0, limit=None):
-        s = "\n"
-        s += "+=================================+\n"
-        s += "|  {:6d} total relevant results  |\n".format(len(self.results))
-        s += "+=================================+\n"
-        ret = OrderedDict()
-        for childname, childptr in self.give_child_pointers(self.root_pointer).items():
-            s += f"\n{childname}:\n"
-            childobj = childptr.give_pointed_object()
-            s2, resultdict = childobj.show_view(childptr, ct=ct, limit=limit)
-            s += s2
-            for k,v in resultdict.items():
-                ret[k] = v
-            ct += len(resultdict)
-        return (s, ret)
+
+    #########################
+    #  Navigation functions
+    #
 
     def construct_view(self, pointer=None, limit=None):
         if pointer == None:
@@ -94,6 +60,11 @@ class ResultDatabase(NestedObjectPointerInterface):
             self.current_pointer = pointer.copy()
         return self.update_current_view(limit=limit)
     
+
+    #######################
+    #  Grouping functions
+    #
+
     def group_attribute(self, attrname):
         raise NotImplementedError()
     
@@ -132,6 +103,11 @@ class ResultDatabase(NestedObjectPointerInterface):
             self.grouped_results[groupval][result[attrname]].append(result)
         self.grouped_results.flush_pointer_cache()
 
+
+    #################################
+    #  Input file parsing functions
+    #
+
     def parse_from_file(self,fname):
         for resultdict in self.result_class.give_result_dict_list(fname):
             self.add_result(self.result_class(resultdict))
@@ -140,8 +116,55 @@ class ResultDatabase(NestedObjectPointerInterface):
         for output_file in os.listdir(dirname):
             self.parse_from_file(dirname+"/"+output_file)
 
-    def export(self):
-        return self.results.export()
+
+    #######################################
+    #  RelevanceInterface implementations
+    #
+    
+    def real_iter_values(self):
+        return self.results.real_iter_values()
+    
+
+    #################################################
+    #  NestedObjectPointerInterface implementations
+    #
+    
+    def enumerate_child_pointers(self, pointer_to_me):
+        ret = OrderedDict()
+        
+        ptr = self.root_pointer.copy()
+        ptr.access_property("categorized_results")
+        ret["categorized_results"] = ptr
+        
+        ptr = self.root_pointer.copy()
+        ptr.access_property("grouped_results")
+        ret["grouped_results"] = ptr
+        
+        self._cached_pointers = ret
+        return ret
+    
+    def size(self):
+        return self.results.size()
     
     def all_result_objects(self):
         return self.results.all_result_objects()
+    
+    def show_view(self, pointer_to_me=None, ct=0, limit=None):
+        s = "\n"
+        s += "+=================================+\n"
+        s += "|  {:6d} total relevant results  |\n".format(len(self.results))
+        s += "+=================================+\n"
+        ret = OrderedDict()
+        for childname, childptr in self.give_child_pointers(self.root_pointer).items():
+            s += f"\n{childname}:\n"
+            childobj = childptr.give_pointed_object()
+            s2, resultdict = childobj.show_view(childptr, ct=ct, limit=limit)
+            s += s2
+            for k,v in resultdict.items():
+                ret[k] = v
+            ct += len(resultdict)
+        return (s, ret)
+
+    def export(self):
+        return self.results.export()
+    
