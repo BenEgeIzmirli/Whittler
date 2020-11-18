@@ -14,29 +14,33 @@ import time
 actions = {
     "navigation" : {
         "show [[limit]]" : "Show the current data context, up to [limit] entries (shows all entries by default)",
-        "dig [id]" : "Dig into a specific data grouping category, by ID",
+        "dig [attr]" : "Dig into a specific data grouping category, either by attribute name, or by attribute id",
         "up" : "Dig up a level into the broader data grouping category",
         "top" : "Dig up to the top level",
         "exit" : "Gracefully exit the program"
     },
     "data model interaction" : {
         "irrelevant [[id]]" : "Mark all elements in the current context, or those referenced by [id], as irrelevant results",
-        "relevant [id]" : "Mark all elements referenced by [id] as relevant results",
-        "group [id]" : "Group all results by similarity to the attribute referenced by [id]. Or, if [id] points to a "+\
-                       "specific result, group by similarity to a specific attribute of the result referenced by [id].",
+        "relevant [[id]]" : "Mark all elements in the current context, or those referenced by [id], as relevant results",
+        "group [id] [[attr]]" : "Using data science, group all results in the database by similarity to the attribute referenced "+\
+                       "by [id]. Or, if [id] points to a specific result, group by similarity to a specific attribute of "+\
+                       "the result referenced by [id].",
         "game [[id]]" : "Play a game where individual results are presented one-by-one, and the user is asked whether "+\
                         "the result is relevant or not and why. Using this information, other similar results are also "+\
                         "eliminated in bulk. If [id] is specified, then the results presented are limited to the result "+\
                         "group represented by the specified [id].",
-        "filter [str]" : "Mark all results containing [str] in a particular attribute as irrelevant (case-insensitive)"
+        "filter [str] [[attr]]" : "Mark all results containing [str] in a particular attribute as irrelevant (case-insensitive)"
     },
     "output" : {
-        "quiet" : "Suppress an attribute from being displayed when printing out raw result data",
-        "unquiet" : "Undo the suppression from an earlier quiet command",
-        "solo" : "Print only a single attribute's value when printing out raw result data",
+        "quiet [[attr]]" : "Suppress an attribute from being displayed when printing out raw result data",
+        "unquiet [[attr]]" : "Undo the suppression from an earlier quiet command",
+        "solo [[attr]]" : "Print only a single attribute's value when printing out raw result data",
+        "SOLO [[attr]]" : "Print ONLY a single attribute's value when printing out raw result data, with no context IDs or "+\
+                 "attribute value names",
         "unsolo" : "Disable solo mode. Note that this retains any attributes suppressed using the \"quiet\" command.",
+        # sort
         "history" : "Print all commands that have been run in this session so far",
-        "export [fname] [[id]]" : "Export all relevant results in JSON format into the file [fname]. Optionally, limit "+\
+        "export [fname] [[id]]" : "Export all relevant results in JSON form at into the file [fname]. Optionally, limit "+\
                                   "the output to the result set as referenced by [id]."
     }
 }
@@ -81,9 +85,10 @@ def print_help():
     wprint("NOTE: This shell supports quoted arguments and redirecting command outout to a file using the \">\" operator.")
     wprint()
 
+# False means no value was supplied for this arg position, None means failed to parse as int
 def get_int_from_args(args, position=0):
     if not len(args) > position:
-        return None
+        return False
     else:
         try:
             argval = int(args[position])
@@ -91,14 +96,40 @@ def get_int_from_args(args, position=0):
             return None
     return argval
 
+# False means no value was supplied for this arg position, None means failed to find corresponding context pointer
 def get_ptr_from_id_arg(resultdb, args, id_arg_position=0):
-    choice_id = get_int_from_args(args, position=id_arg_position)
-    if choice_id is None:
+    choice = get_int_from_args(args, position=id_arg_position)
+    
+    # No value was supplied for this arg position
+    if choice is False:
         return False
-    if choice_id not in resultdb.context_pointers:
-        wprint(f"Could not recognize {choice_id} as one of the IDs listed above.\n")
+    
+    # we couldn't parse it as an int, so it must be a string literal attribute value
+    if choice is None:
+        choice = args[id_arg_position]
+        for ptr in resultdb.context_pointers.values():
+            # The attribute values will be the .value property of the Vertex object given by the last
+            # get_by_index operation called on this pointer.
+            if ptr.path[-1].value == choice:
+                return ptr
+        wprint(f"Could not recognize \"{choice}\" as one of the attributes of this dataset.\n")
         return None
-    return resultdb.context_pointers[choice_id]
+    
+    # The value supplied was an int, so should be looked up in the context_pointers dict
+    if choice not in resultdb.context_pointers:
+        wprint(f"Could not recognize {choice} as one of the IDs listed above.\n")
+        return None
+    return resultdb.context_pointers[choice]
+
+# False means no value was supplied for this arg position, None means failed to find corresponding context pointer
+def get_attrname_from_attribute_arg(resultdb, args, attr_arg_position=0):
+    ptr = get_ptr_from_id_arg(resultdb, args, id_arg_position=attr_arg_position)
+    if ptr is False:
+        return False
+    attrname = args[attr_arg_position]
+    if attrname not in resultdb.result_class.ATTRIBUTES:
+        return None
+    return attrname
 
 def select_attribute(resultdb, msg):
     attrs = resultdb.result_class.ATTRIBUTES
@@ -154,7 +185,14 @@ def get_and_parse_user_input():
     user_input = winput("Whittler > ")
     if not user_input.strip():
         return None
-    user_input.replace("'","\"")
+    
+    # Support strings with escaped quote characters
+    user_input = user_input.replace("\\'","###_TRUFFLEHOG_SINGLE_QUOTE_###")
+    user_input = user_input.replace("\\\"","###_TRUFFLEHOG_DOUBLE_QUOTE_###")
+
+    # For now, just treat single and double quotes identically.
+    user_input = user_input.replace("'","\"")
+
     if user_input.find("\"") == -1:
         verb,*args = list(filter(None,user_input.split(" ")))
     else:
@@ -181,6 +219,10 @@ def get_and_parse_user_input():
         args = args[:-2]
     except ValueError:
         redirect = None
+    
+    for i in range(len(args)):
+        args[i] = args[i].replace("###_TRUFFLEHOG_SINGLE_QUOTE_###","\\'")
+        args[i] = args[i].replace("###_TRUFFLEHOG_DOUBLE_QUOTE_###","\\\"")
     return (verb,args,redirect)
 
 def play_elimination_game(resultdb, obj):
@@ -261,9 +303,12 @@ def main_loop(resultdb):
         if user_input is None:
             continue
         verb,args,redirect = user_input
+        if verb.startswith("#"):
+            continue
+
         if not redirect is None:
             try:
-                redirect_file = open(redirect, "w+")
+                redirect_file = open(redirect, "w+", encoding="utf-8")
             except PermissionError:
                 wprint("Failed to open the specified file, maybe try an absolute path? (FYI, quotes are supported.)")
 
@@ -277,12 +322,14 @@ def main_loop(resultdb):
         #
 
         elif verb == "show":
-            wprint(resultdb.construct_view(limit=get_int_from_args(args))[0])
+            limit = get_int_from_args(args)
+            limit = limit if limit else None # get_int_from_args returns False if no value was supplied for the arg
+            wprint(resultdb.construct_view(limit=limit)[0])
             continue
         elif verb == "dig":
             ptr = get_ptr_from_id_arg(resultdb, args)
             if ptr is False:
-                wprint("no [id] specified, no digging performed.")
+                wprint("no [attr] specified, no digging performed.")
                 continue
             if ptr is None:
                 continue
@@ -337,14 +384,18 @@ def main_loop(resultdb):
                 continue
             obj = ptr.give_pointed_object()
             if isinstance(obj, resultdb.result_class):
-                group_attr = select_attribute(resultdb, "Which attribute of this result would you like to group by? ")
-                group_value = obj[group_attr]
+                groupattr = get_attrname_from_attribute_arg(resultdb, args, attr_arg_position=1)
+                if groupattr is False:
+                    groupattr = select_attribute(resultdb, "Which attribute of this result would you like to group by? ")
+                elif groupattr is None:
+                    continue
+                groupval = obj[groupattr]
             elif isinstance(obj, RelevanceFilteredResultList):
-                group_value = ptr.go_up_level().value
-                group_attr = ptr.go_up_level().value
+                groupval = ptr.go_up_level().value
+                groupattr = ptr.go_up_level().value
             else:
                 raise NotImplementedError()
-            group_interactive(resultdb, group_attr, group_value)
+            group_interactive(resultdb, groupattr, groupval)
             continue
         elif verb == "game":
             ptr = get_ptr_from_id_arg(resultdb, args)
@@ -359,12 +410,17 @@ def main_loop(resultdb):
         elif verb == "filter":
             if not len(args):
                 wprint("Need to provide a string to filter by.")
-            filtstr = args[0]
-            filter_attr = select_attribute(resultdb, "Which attribute would you like to filter by? ")
+                continue
+            filter_str = args[0]
+            quieted_attr = get_attrname_from_attribute_arg(resultdb, args, attr_arg_position=1)
+            if quieted_attr is False:
+                quieted_attr = select_attribute(resultdb, "Which attribute would you like to filter by? ")
+            elif quieted_attr is None:
+                continue
             ct = 0
             for result in resultdb.results:
-                if filtstr.lower() in result[filter_attr].lower():
-                    result.relevant = False
+                if filter_str.lower() in result[quieted_attr].lower():
+                    result.mark_irrelevant()
                     ct += 1
             wprint(f"Marked {ct} results as irrelevant using the filter.")
             continue
@@ -376,26 +432,51 @@ def main_loop(resultdb):
         #
         
         elif verb == "quiet":
-            silenced_attr = select_attribute(resultdb, "Which attribute would you like to suppress in output? ")
-            resultdb.result_class.SILENCED_ATTRIBUTES.add(silenced_attr)
+            quieted_attr = get_attrname_from_attribute_arg(resultdb, args)
+            if quieted_attr is False:
+                quieted_attr = select_attribute(resultdb, "Which attribute would you like to suppress in output? ")
+            elif quieted_attr is None:
+                continue
+            resultdb.result_class.SILENCED_ATTRIBUTES.add(quieted_attr)
             continue
         elif verb == "unquiet":
             attrs = list(resultdb.result_class.SILENCED_ATTRIBUTES)
             if not len(attrs):
                 wprint("No silenced attributes to unquiet.")
                 continue
-            for i in range(len(attrs)):
-                wprint(f" {i} : {attrs[i]}")
-            wprint()
-            index = int(winput("Which attribute would you like to un-suppress in output? "))
-            resultdb.result_class.SILENCED_ATTRIBUTES.remove(attrs[index])
+            quieted_attr = get_attrname_from_attribute_arg(resultdb, args)
+            if quieted_attr is False:
+                for i in range(len(attrs)):
+                    wprint(f" {i} : {attrs[i]}")
+                wprint()
+                index = int(winput("Which attribute would you like to un-suppress in output? "))
+                quieted_attr = attrs[index]
+            elif quieted_attr is None:
+                continue
+            elif quieted_attr not in attrs:
+                wprint("That attribute was not silenced, no action taken.")
+                continue
+            resultdb.result_class.SILENCED_ATTRIBUTES.remove(quieted_attr)
             continue
         elif verb == "solo":
-            solo_attr = select_attribute(resultdb, "Which attribute would you like to print exclusively in output? ")
+            solo_attr = get_attrname_from_attribute_arg(resultdb, args)
+            if solo_attr is False:
+                solo_attr = select_attribute(resultdb, "Which attribute would you like to print exclusively in output? ")
+            elif solo_attr is None:
+                continue
             resultdb.result_class.SOLO_ATTRIBUTE = solo_attr
+            continue
+        elif verb == "SOLO":
+            solo_attr = get_attrname_from_attribute_arg(resultdb, args)
+            if solo_attr is False:
+                solo_attr = select_attribute(resultdb, "Which attribute would you like to print exclusively in output? ")
+            elif solo_attr is None:
+                continue
+            resultdb.result_class.SUPER_SOLO_ATTRIBUTE = solo_attr
             continue
         elif verb == "unsolo":
             resultdb.result_class.SOLO_ATTRIBUTE = None
+            resultdb.result_class.SUPER_SOLO_ATTRIBUTE = None
             continue
         elif verb == "history":
             wprint()
@@ -417,7 +498,7 @@ def main_loop(resultdb):
                 obj = ptr.give_pointed_object()
             resultlist = obj.export()
             try:
-                with open(fname,"w+") as f:
+                with open(fname,"w+", encoding="utf-8") as f:
                     f.write(json.dumps(resultlist, indent=4))
                 wprint("Export success.")
             except PermissionError:
@@ -436,7 +517,7 @@ def main_loop(resultdb):
 result_classes = {cls.FRIENDLY_NAME:cls for cls in [getattr(modules, name) for name in dir(modules)] if isinstance(cls,type) and issubclass(cls,Result)}
 
 parser = argparse.ArgumentParser(description="An interactive script to whittle down false-positive trufflehog findings")
-parser.add_argument('--config', help='the module to use to parse the specified tool output files.', type=str, nargs=1, choices=list(result_classes.keys()))
+parser.add_argument('--config', help='the module to use to parse the specified tool output files.', type=str, nargs=1, choices=list(result_classes.keys()), default=None)
 parser.add_argument('--file', help='the tool output file to be parsed', type=str, nargs=1, default='')
 parser.add_argument('--dir', help='the directory containing tool output files to be parsed', type=str, nargs=1, default='')
 parser.add_argument('--log_output', help='a file to which all output in this session will be logged', type=str, nargs=1, default=None)
@@ -447,13 +528,13 @@ if __name__ == "__main__":
     args = parser.parse_args()
     if not args.log_output is None:
         try:
-            global_redirect_file = open(args.log_output,"w+")
+            global_redirect_file = open(args.log_output[0],"w+", encoding="utf-8")
         except PermissionError:
             print("Lacking permissions to write to the specified all-output log file.")
             sys.exit(1)
     if not args.log_command_history is None:
         try:
-            command_redirect_file = open(args.log_command_history,"w+")
+            command_redirect_file = open(args.log_command_history[0],"w+", encoding="utf-8")
         except PermissionError:
             print("Lacking permissions to write to the specified command history log file.")
             sys.exit(1)

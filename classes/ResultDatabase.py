@@ -110,6 +110,7 @@ class ResultDatabase(RelevanceInterface):
 
     def parse_from_file(self,fname):
         for resultdict in self.result_class.give_result_dict_list(fname):
+            resultdict["whittler_filename"] = fname
             self.add_result(self.result_class(resultdict))
 
     def parse_from_directory(self,dirname):

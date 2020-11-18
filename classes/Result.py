@@ -1,4 +1,4 @@
-from classes.NestedObjectPointer import NestedObjectPointer, NestedObjectPointerInterface
+from classes.NestedObjectPointer import NestedObjectPointerInterface
 from config import Config
 from collections import defaultdict, OrderedDict
 import hashlib
@@ -33,6 +33,7 @@ class Result(dict, RelevanceInterface):
     ATTRIBUTES = []
     SILENCED_ATTRIBUTES = set()
     SOLO_ATTRIBUTE = None
+    SUPER_SOLO_ATTRIBUTE = None
 
     def __init__(self,resultdict):
         self.original_resultdict = resultdict
@@ -43,6 +44,8 @@ class Result(dict, RelevanceInterface):
         self._relevant = True
         RelevanceInterface.__init__(self)
 
+        if "whittler_filename" not in self.ATTRIBUTES:
+            self.ATTRIBUTES.insert(0,"whittler_filename")
         for k,v in resultdict.items():
             self[k] = v
     
@@ -94,11 +97,18 @@ class Result(dict, RelevanceInterface):
             nonlocal s
             s += str(content) + "\n"
         for k,v in self.items():
-            if not self.SOLO_ATTRIBUTE is None and k != self.SOLO_ATTRIBUTE:
-                continue
+            if not self.SUPER_SOLO_ATTRIBUTE is None:
+                if k != self.SUPER_SOLO_ATTRIBUTE:
+                    continue
+                adds(v)
+                break
+            elif not self.SOLO_ATTRIBUTE is None:
+                if k != self.SOLO_ATTRIBUTE:
+                    continue
             adds(k)
             if k in self.SILENCED_ATTRIBUTES and k != self.SOLO_ATTRIBUTE:
                 adds("... silenced ...")
+                adds("")
                 continue
             adds("\n".join("    "+line for line in v.splitlines()))
             adds("")
@@ -143,7 +153,7 @@ class Result(dict, RelevanceInterface):
         return (self.pretty_repr(), pointer_to_me)
     
     def export(self):
-        return self.original_resultdict
+        return {**self.original_resultdict, "whittler_filename":self["whittler_filename"]}
     
 
 class RelevanceFilteredResultList(list, RelevanceInterface):
@@ -220,12 +230,15 @@ class RelevanceFilteredResultList(list, RelevanceInterface):
         for key, ptr in self.give_child_pointers(pointer_to_me).items():
             result = self[key]
             result_id = str(hash(result))[:6]
-            adds("~~~~~~~~~~~~~~~~~~~~~~~~~")
-            adds(f"  Result with ID {result_id}    ")
-            adds("~~~~~~~~~~~~~~~~~~~~~~~~~")
-            for line in result.pretty_repr().split("\n"):
-                adds(line, prefix="| ")
-            s += "\n\n"
+            if not result.SUPER_SOLO_ATTRIBUTE is None:
+                adds(result.pretty_repr())
+            else:
+                adds("~~~~~~~~~~~~~~~~~~~~~~~~~")
+                adds(f"  Result with ID {result_id}    ")
+                adds("~~~~~~~~~~~~~~~~~~~~~~~~~")
+                for line in result.pretty_repr().split("\n"):
+                    adds(line, prefix="| ")
+                s += "\n\n"
             ret[int(result_id)] = ptr
             if not limit is None and len(ret) >= limit:
                 break
@@ -295,7 +308,8 @@ class ValueLengthSortedResultDict(defaultdict, RelevanceInterface):
         lines = []
         for key, ptr in self.give_child_pointers(pointer_to_me).items():
             value = self[key]
-            line = "| {:4d} | {:5d} | {:8d} | {}".format(ct,value.real_length(),len(value),key.strip())
+            sanitized_key = key.strip().replace("\n","\\n")
+            line = "| {:4d} | {:5d} | {:8d} | {}".format(ct,value.real_length(),len(value),sanitized_key)
             if len(line) > max_width-2:
                 line = line[:max_width-2-7]+" [...] "
             lines.append(line)
