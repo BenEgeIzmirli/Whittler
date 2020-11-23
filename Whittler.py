@@ -4,7 +4,10 @@ from classes.Result import Result, RelevanceFilteredResultList
 import modules
 from config import Config
 import sys
+import os
+import datetime
 import argparse
+from pathlib import Path
 import textwrap
 import json
 import random
@@ -143,7 +146,7 @@ def group_interactive(resultdb, groupattr, groupval):
     wprint("Creating a result group set based on this attribute value...")
     SIMILARITY_THRESHOLD = Config.SIMILARITY_THRESHOLD
     while True:
-        similar_results = resultdb.find_similar_results(groupattr, groupval)
+        similar_results = resultdb.find_similar_results(groupattr, groupval, similarity_threshold=SIMILARITY_THRESHOLD)
         wprint()
         for val in sorted(set([res[groupattr] for res in similar_results])):
             wprint(f"   {val.strip()}")
@@ -513,6 +516,10 @@ def main_loop(resultdb):
             continue
 
         
+HOME_DIRECTORY = str(Path.home())
+WHITTLER_DIRECTORY = HOME_DIRECTORY+"/.whittler"
+if not os.path.isdir(WHITTLER_DIRECTORY):
+    os.mkdir(WHITTLER_DIRECTORY,mode=0o770)
 
 result_classes = {cls.FRIENDLY_NAME:cls for cls in [getattr(modules, name) for name in dir(modules)] if isinstance(cls,type) and issubclass(cls,Result)}
 
@@ -520,21 +527,28 @@ parser = argparse.ArgumentParser(description="An interactive script to whittle d
 parser.add_argument('--config', help='the module to use to parse the specified tool output files.', type=str, nargs=1, choices=list(result_classes.keys()), default=None)
 parser.add_argument('--file', help='the tool output file to be parsed', type=str, nargs=1, default='')
 parser.add_argument('--dir', help='the directory containing tool output files to be parsed', type=str, nargs=1, default='')
-parser.add_argument('--log_output', help='a file to which all output in this session will be logged', type=str, nargs=1, default=None)
-parser.add_argument('--log_command_history', help='a file in which to record the command history of this session', type=str, nargs=1, default=None)
+parser.add_argument('--log_output', help='a file to which all output in this session will be logged (default: a new folder in the '+\
+                                         '.whittler folder in your home directory)', type=str, nargs="?", default=None,
+                                         const=WHITTLER_DIRECTORY+'/{date:%Y-%m-%d_%H-%M-%S}_log.txt'.format( date=datetime.datetime.now() ))
+parser.add_argument('--log_command_history', help='a file in which to record the command history of this session (default: a new folder in the '+\
+                                                  '.whittler folder in your home directory)', type=str, nargs="?", default=None,
+                                                  const=WHITTLER_DIRECTORY+'/{date:%Y-%m-%d_%H-%M-%S}_command_log.txt'.format( date=datetime.datetime.now() ))
 parser.add_argument('--import_whittler_output', help='consume and continue working with a file that was outputted by Whittler\'s "export" command"', type=str, nargs=1, default=None)
 
 if __name__ == "__main__":
     args = parser.parse_args()
+    print(args)
     if not args.log_output is None:
+        logdir = args.log_output[0] if isinstance(args.log_output,list) else args.log_output
         try:
-            global_redirect_file = open(args.log_output[0],"w+", encoding="utf-8")
+            global_redirect_file = open(logdir,"w+", encoding="utf-8")
         except PermissionError:
             print("Lacking permissions to write to the specified all-output log file.")
             sys.exit(1)
     if not args.log_command_history is None:
+        logcmddir = args.log_command_history[0] if isinstance(args.log_command_history,list) else args.log_command_history
         try:
-            command_redirect_file = open(args.log_command_history[0],"w+", encoding="utf-8")
+            command_redirect_file = open(logcmddir,"w+", encoding="utf-8")
         except PermissionError:
             print("Lacking permissions to write to the specified command history log file.")
             sys.exit(1)

@@ -229,6 +229,8 @@ class RelevanceFilteredResultList(list, RelevanceInterface):
             s += prefix + string + "\n"
         for key, ptr in self.give_child_pointers(pointer_to_me).items():
             result = self[key]
+            if not result.relevant:
+                continue
             result_id = str(hash(result))[:6]
             if not result.SUPER_SOLO_ATTRIBUTE is None:
                 adds(result.pretty_repr())

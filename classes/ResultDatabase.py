@@ -3,8 +3,12 @@ from classes.NestedObjectPointer import NestedObjectPointer, NestedObjectPointer
 from config import Config
 from collections import OrderedDict
 import os
-from pyxdameraulevenshtein import normalized_damerau_levenshtein_distance_ndarray
 import numpy as np
+try:
+    from pyxdameraulevenshtein import normalized_damerau_levenshtein_distance_ndarray
+except ImportError:
+    print("Warning: pyxDamerauLevenshtein module not detected, fuzzy grouping logic will be impaired.")
+    normalized_damerau_levenshtein_distance_ndarray = lambda reference, values: np.array([1 for v in values])
 import difflib
 
 
@@ -88,11 +92,13 @@ class ResultDatabase(RelevanceInterface):
         dist_sum = dh_exp+sm_exp
         return np.power(dist_sum,1/exp)
     
-    def find_similar_results(self, attrname, groupval):
+    def find_similar_results(self, attrname, groupval, similarity_threshold=None):
+        if similarity_threshold is None:
+            similarity_threshold = Config.SIMILARITY_THRESHOLD
         all_results = [res for res in list.__iter__(self.results)]
         attrarray = np.array([res[attrname].strip() for res in all_results])
         normalized_distances = self.compute_distances(groupval, attrarray)
-        return [res for res,_ in filter(lambda tup:tup[1]>Config.SIMILARITY_THRESHOLD, zip(all_results, normalized_distances))]
+        return [res for res,_ in filter(lambda tup:tup[1]>similarity_threshold, zip(all_results, normalized_distances))]
     
     def group_attribute_by_value(self, attrname, groupval):
         similar_results = self.find_similar_results(attrname, groupval)
