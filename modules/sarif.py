@@ -45,7 +45,8 @@ class SarifResult(Result):
         with open(fname,"r", encoding=SarifResult.Config.FILE_ENCODING) as f:
             sarif_json = json.loads(f.read())
         
-        all_keys = set()
+        # I'd prefer to have this be a set(), but it needs to stay ordered for convenience.
+        all_keys = []
 
         run = sarif_json["runs"][0]
         
@@ -69,7 +70,9 @@ class SarifResult(Result):
         # Add the union of all rule attributes into the all_keys set (prepending "rules.")
         for r in rules.values():
             for k in r.keys():
-                all_keys.add(f"rules.{k}")
+                key = f"rules.{k}"
+                if key not in all_keys:
+                    all_keys.append(key)
         
         # get the results, collapsed recursively, as a list of result dictionaries
         ret = [SarifResult.collapse_recursive_json(result) for result in run["results"]]
@@ -77,11 +80,14 @@ class SarifResult(Result):
         # add the union of all result attributes into the all_keys set
         for r in ret:
             for k in r.keys():
-                all_keys.add(k)
+                if k not in all_keys:
+                    all_keys.append(k)
         
         # set this class' ATTRIBUTES to reflect all the keys we've collected - otherwise we'll have errors
         # when casting the returned dictionaries to SarifResult objects
-        SarifResult.ATTRIBUTES = list(set(all_keys|set(SarifResult.ATTRIBUTES)))
+        for k in all_keys:
+            if k not in SarifResult.ATTRIBUTES:
+                SarifResult.ATTRIBUTES.append(k)
 
         for r in ret:
             # get the rule corresponding to this result

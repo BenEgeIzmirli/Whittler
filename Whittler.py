@@ -546,7 +546,7 @@ if not os.path.isdir(WHITTLER_DIRECTORY):
     os.mkdir(WHITTLER_DIRECTORY,mode=0o770)
 
 result_classes = {}
-for fname in filter(lambda s: not s.startswith("__") , os.listdir(os.path.dirname(os.path.realpath(__file__))+"/modules")):
+for fname in filter(lambda s: not s.startswith("_") , os.listdir(os.path.dirname(os.path.realpath(__file__))+"/modules")):
     module = importlib.import_module(f"modules.{fname[:fname.index('.')]}")
     for clsname in dir(module):
         if clsname.startswith("__"):

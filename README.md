@@ -2,36 +2,11 @@
 
 ## About
 
-This utility is designed to consume large datasets of results of some sort, and let you qualitatively or quantitatively rule out certain results as irrelevant. In the future I hope to add some sample usage here, but for now, just use the --help command on Whittler.py, and the "help" command in the shell, combined with some trial and error :)
+This utility is designed to consume large datasets of results of some sort, and let you qualitatively or quantitatively rule out certain results as irrelevant. It splits the data into intuitive categories and lets you interact with the dataset, marking results as relevant or irrelevant as desired. It also has the capability to use a combination of string-similarity algorithms to make "fuzzy groups" of elements that are similar in some way or another, and mark those as relevant or irrelevant.
 
-## Prerequisites
+Whittler was designed to deal with the output of security tools that return thousands of results, many of which are false-positives. However, it could be used to categorize and explore any type of dataset. Whittler uses modules to import the data in a given dataset, and making modules is easy, only requiring basic Python knowledge (see the "Making new modules" section below).
 
-This shell has been tested on Python >= 3.6 .
-
-Whittler will work fine with only standard libraries. The only nonstandard library used in this project is [pyxDamerauLevenshtein](https://github.com/gfairchild/pyxDamerauLevenshtein), which is used to improve its ability to predict fuzzy groups of results for bulk categorization. It can be installed via the following command:
-
-```
-pip install pyxDamerauLevenshtein
-```
-
-Or, alternatively:
-
-```
-python -m pip install pyxDamerauLevenshtein
-```
-
-## Installation
-
-This *should* be a foolproof way to get this project working on Windows:
-
-1. [Install Anaconda with Python 3.x](https://www.anaconda.com/products/individual)
-2. Open the Anaconda Command Prompt (search for it in the start menu, start as Administrator to be safe)
-3. Ensure that we're using Python 3: `python --version`
-4. `python -m pip install pyxDamerauLevenshtein`
-5. Navigate to the root directory of this repo (the one with Whittler.py)
-6. `python .\Whittler.py --help`
-
-At this point, you should see something like the following:
+## Quickstart
 
 ```
 (base) PS C:\Scripts\Whittler> python .\Whittler.py --help
@@ -107,3 +82,42 @@ NOTE: This shell supports quoted arguments and redirecting command outout to a f
 
 Whittler > 
 ```
+
+## Prerequisites
+
+This shell has been tested on Python >= 3.6 .
+
+Whittler will work fine with only standard libraries. The only nonstandard library used in this project is [pyxDamerauLevenshtein](https://github.com/gfairchild/pyxDamerauLevenshtein), which is used to improve its ability to predict fuzzy groups of results for bulk categorization. It can be installed via the following command:
+
+```
+pip install pyxDamerauLevenshtein
+```
+
+Or, alternatively:
+
+```
+python -m pip install pyxDamerauLevenshtein
+```
+
+## Installation
+
+This *should* be a foolproof way to get this project working on Windows:
+
+1. [Install Anaconda with Python 3.x](https://www.anaconda.com/products/individual)
+2. Open the Anaconda Command Prompt (search for it in the start menu, start as Administrator to be safe)
+3. Ensure that we're using Python 3: `python --version`
+4. `python -m pip install pyxDamerauLevenshtein`
+5. Navigate to the root directory of this repo (the one with Whittler.py)
+6. `python .\Whittler.py --help`
+
+## Output
+
+By default, Whittler will just output to the console. However, if the `--log_command_history` or `--log_output` flags are specified, Whittler will output the full transcript of your session and/or a full list of the commands you ran into a .whittler folder that is created in your user profile's home directory. (Both of these parameters can optionally take filenames that will be used for output instead of the default files in the .whittler folder.) To recreate an entire Whittler session (given the same input file corpus), the command history can simply be copy-pasted into the Whittler shell - all the data structures used by Whittler are ordered and sorted to enable recreating sessions accurately.
+
+## Game mode
+
+Whittler features a "game mode" that can be entered using the "game" command. In this mode, the results in Whittler's database will be displayed one-by-one, and Whittler will ask whether the result is relevant to you or not. Based on your response, it will gather information on exactly why the result was irrelevant, and optionally use data science algorithms to deduce other results that you may also find similar to the current result. It will show you results you haven't categorized as relevant/irrelevant until you've worked through the entire database, or decide to exit the game. In my experience, this tends to be the quickest way to whittle through huge datasets :)
+
+## Making new modules
+
+Whittler can ingest literally any data source. Just copy modules/_sample_module.py to a new file in the modules/ directory and work from there. The sample module has documentation to help you craft your new data ingestion module. (Just make sure that your new module's filename does not start with an underscore - module filenames starting with underscores are ignored.)
