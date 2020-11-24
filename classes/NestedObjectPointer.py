@@ -1,5 +1,5 @@
 from collections import namedtuple, OrderedDict
-
+from config import ConfigurableInterface
 
 Vertex = namedtuple("Vertex", ["operation","value"])
 
@@ -47,7 +47,7 @@ class NestedObjectPointer:
         return ret
 
 
-class NestedObjectPointerInterface:
+class NestedObjectPointerInterface(ConfigurableInterface):
     def __init__(self):
         self._cached_pointers = None
     

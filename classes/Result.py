@@ -57,7 +57,7 @@ class Result(dict, RelevanceInterface):
             #raise Exception(f"To support hashing and sorting logic, only unicode strings are allowed as values (got {type(value)}).")
         if self._frozen:
             raise Exception("Cannot modify this result after it has been added to the database!")
-        if Config.REMOVE_ANSI_CONTROL_CHARACTERS:
+        if self.Config.REMOVE_ANSI_CONTROL_CHARACTERS:
             value = self.filter_ansi(value)
         self._cached_hash_valid = False
         super().__setitem__(key,value)
@@ -305,7 +305,7 @@ class ValueLengthSortedResultDict(defaultdict, RelevanceInterface):
         return ret
 
     def show_view(self, pointer_to_me=None, ct=0, limit=None):
-        max_width = Config.MAX_OUTPUT_WIDTH
+        max_width = self.Config.MAX_OUTPUT_WIDTH
         ret = OrderedDict()
         lines = []
         for key, ptr in self.give_child_pointers(pointer_to_me).items():

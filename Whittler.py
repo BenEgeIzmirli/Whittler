@@ -2,6 +2,7 @@ from classes.NestedObjectPointer import NestedObjectPointer
 from classes.ResultDatabase import ResultDatabase
 from classes.Result import Result, RelevanceFilteredResultList
 import modules
+import importlib
 from config import Config
 import sys
 import os
@@ -20,6 +21,7 @@ actions = {
         "dig [attr]" : "Dig into a specific data grouping category, either by attribute name, or by attribute id",
         "up" : "Dig up a level into the broader data grouping category",
         "top" : "Dig up to the top level",
+        "dump" : "Display every relevant result in every category",
         "exit" : "Gracefully exit the program"
     },
     "data model interaction" : {
@@ -52,12 +54,16 @@ command_history = []
 command_redirect_file = None
 global_redirect_file = None
 redirect_file = None
-def wprint(s=None):
+class _NoInput:
+    pass
+def wprint(s=_NoInput):
+    if s is _NoInput:
+        s = ""
     if not redirect_file is None:
         redirect_file.write(str(s)+"\n")
     if not global_redirect_file is None:
         global_redirect_file.write(str(s)+"\n")
-    print("" if s is None else s)
+    print(s)
 
 def winput(msg):
     user_input = input(msg)
@@ -144,7 +150,7 @@ def select_attribute(resultdb, msg):
 
 def group_interactive(resultdb, groupattr, groupval):
     wprint("Creating a result group set based on this attribute value...")
-    SIMILARITY_THRESHOLD = Config.SIMILARITY_THRESHOLD
+    SIMILARITY_THRESHOLD = resultdb.Config.SIMILARITY_THRESHOLD
     while True:
         similar_results = resultdb.find_similar_results(groupattr, groupval, similarity_threshold=SIMILARITY_THRESHOLD)
         wprint()
@@ -351,8 +357,11 @@ def main_loop(resultdb):
             while not resultdb.current_pointer.is_base_pointer():
                 resultdb.current_pointer.go_up_level()
             continue
+        elif verb == "dump":
+            ptr = resultdb.root_pointer.copy()
+            ptr.access_property("results")
+            resultdb.results.show_view(ptr)
         elif verb == "exit":
-            wprint("\nGoodbye.\n")
             sys.exit(0)
 
 
@@ -521,23 +530,31 @@ WHITTLER_DIRECTORY = HOME_DIRECTORY+"/.whittler"
 if not os.path.isdir(WHITTLER_DIRECTORY):
     os.mkdir(WHITTLER_DIRECTORY,mode=0o770)
 
-result_classes = {cls.FRIENDLY_NAME:cls for cls in [getattr(modules, name) for name in dir(modules)] if isinstance(cls,type) and issubclass(cls,Result)}
+result_classes = {}
+for fname in filter(lambda s: not s.startswith("__") , os.listdir(os.path.dirname(os.path.realpath(__file__))+"/modules")):
+    module = importlib.import_module(f"modules.{fname[:fname.index('.')]}")
+    for clsname in dir(module):
+        if clsname.startswith("__"):
+            continue
+        cls = getattr(module, clsname)
+        if isinstance(cls, type) and issubclass(cls, Result) and not cls is Result:
+            result_classes[cls.FRIENDLY_NAME] = cls
+            break
 
 parser = argparse.ArgumentParser(description="An interactive script to whittle down false-positive trufflehog findings")
 parser.add_argument('--config', help='the module to use to parse the specified tool output files.', type=str, nargs=1, choices=list(result_classes.keys()), default=None)
 parser.add_argument('--file', help='the tool output file to be parsed', type=str, nargs=1, default='')
 parser.add_argument('--dir', help='the directory containing tool output files to be parsed', type=str, nargs=1, default='')
-parser.add_argument('--log_output', help='a file to which all output in this session will be logged (default: a new folder in the '+\
+parser.add_argument('--log_output', help='a file to which all output in this session will be logged (default: a new file in the '+\
                                          '.whittler folder in your home directory)', type=str, nargs="?", default=None,
                                          const=WHITTLER_DIRECTORY+'/{date:%Y-%m-%d_%H-%M-%S}_log.txt'.format( date=datetime.datetime.now() ))
-parser.add_argument('--log_command_history', help='a file in which to record the command history of this session (default: a new folder in the '+\
+parser.add_argument('--log_command_history', help='a file in which to record the command history of this session (default: a new file in the '+\
                                                   '.whittler folder in your home directory)', type=str, nargs="?", default=None,
                                                   const=WHITTLER_DIRECTORY+'/{date:%Y-%m-%d_%H-%M-%S}_command_log.txt'.format( date=datetime.datetime.now() ))
 parser.add_argument('--import_whittler_output', help='consume and continue working with a file that was outputted by Whittler\'s "export" command"', type=str, nargs=1, default=None)
 
 if __name__ == "__main__":
     args = parser.parse_args()
-    print(args)
     if not args.log_output is None:
         logdir = args.log_output[0] if isinstance(args.log_output,list) else args.log_output
         try:
@@ -545,6 +562,7 @@ if __name__ == "__main__":
         except PermissionError:
             print("Lacking permissions to write to the specified all-output log file.")
             sys.exit(1)
+        global_redirect_file.write(" ".join(sys.argv)+"\n\n")
     if not args.log_command_history is None:
         logcmddir = args.log_command_history[0] if isinstance(args.log_command_history,list) else args.log_command_history
         try:
@@ -557,22 +575,35 @@ if __name__ == "__main__":
         if not args.dir and not args.file:
             parser.print_help()
             sys.exit(1)
-        print("\nWelcome to the Whittler shell. Type \"help\" for a list of commands.\n")
-        print("Parsing provided files...")
-        print()
+        wprint("\nWelcome to the Whittler shell. Type \"help\" for a list of commands.\n")
+        wprint("Parsing provided files...")
+        wprint()
         if args.dir:
             resultdb.parse_from_directory(args.dir[0])
         if args.file:
             resultdb.parse_from_file(args.file[0])
-        print("Done.\n")
+        wprint("Done.\n")
         main_loop(resultdb)
     except:
         raise
     finally:
-        if not global_redirect_file is None:
-            global_redirect_file.close()
-        if not redirect_file is None:
-            redirect_file.close()
+        print()
         if not command_redirect_file is None:
+            fname = command_redirect_file.name.replace('\\','/')
+            wprint(f"Saving logged command history to {fname} ...")
             command_redirect_file.close()
+        if not redirect_file is None:
+            fname = redirect_file.name.replace('\\','/')
+            wprint(f"Saving pipe output to {fname} ...")
+            redirect_file.close()
+        goodbye_said = False
+        if not global_redirect_file is None:
+            fname = global_redirect_file.name.replace('\\','/')
+            wprint(f"Saving logged output to {fname} ...")
+            wprint("\nGoodbye.\n")
+            goodbye_said = True
+            global_redirect_file.close()
+        if not goodbye_said:
+            print("\nGoodbye.\n")
+        
 

@@ -22,7 +22,7 @@ class TrufflehogResult(Result):
 
     @staticmethod
     def give_result_dict_list(fname):
-        with open(fname,"r", encoding=Config.FILE_ENCODING) as f:
+        with open(fname,"r", encoding=TrufflehogResult.Config.FILE_ENCODING) as f:
             output_raw = f.read()
             # For some reason, trufflehog just tacks together JSON objects without commas or an array to contain them,
             # e.g. {blah:blah} {blah:blah} . We want to turn that into [{blah:blah},{blah:blah}] .

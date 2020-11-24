@@ -23,3 +23,10 @@ class Config:
     SIMILARITY_EXPONENT = 2
 
     MAX_OUTPUT_WIDTH = 120
+
+    @classmethod
+    def copy(cls, overridden_values={}):
+        return type(f"_{cls.__name__}",(cls,),overridden_values)
+
+class ConfigurableInterface:
+    Config = Config
