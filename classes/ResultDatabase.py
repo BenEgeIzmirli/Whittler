@@ -122,6 +122,7 @@ class ResultDatabase(RelevanceInterface):
 
     def parse_from_directory(self,dirname):
         for output_file in os.listdir(dirname):
+            print(output_file)
             self.parse_from_file(dirname+"/"+output_file)
     
     def parse_from_export(self,fname):

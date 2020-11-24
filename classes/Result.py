@@ -105,6 +105,8 @@ class Result(dict, RelevanceInterface):
             elif not self.SOLO_ATTRIBUTE is None:
                 if k != self.SOLO_ATTRIBUTE:
                     continue
+            if not v.strip():
+                continue
             adds(k)
             if k in self.SILENCED_ATTRIBUTES and k != self.SOLO_ATTRIBUTE:
                 adds("... silenced ...")

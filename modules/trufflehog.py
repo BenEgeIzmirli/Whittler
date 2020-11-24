@@ -1,5 +1,4 @@
 from classes.Result import Result
-from config import Config
 import re
 import json
 

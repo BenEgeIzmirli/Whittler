@@ -542,7 +542,8 @@ for fname in filter(lambda s: not s.startswith("__") , os.listdir(os.path.dirnam
             break
 
 parser = argparse.ArgumentParser(description="An interactive script to whittle down false-positive trufflehog findings")
-parser.add_argument('--config', help='the module to use to parse the specified tool output files.', type=str, nargs=1, choices=list(result_classes.keys()), default=None)
+parser.add_argument('--config', help='the module to use to parse the specified tool output files.', type=str, nargs=1,
+                                choices=list(result_classes.keys()), default=None)
 parser.add_argument('--file', help='the tool output file to be parsed', type=str, nargs=1, default='')
 parser.add_argument('--dir', help='the directory containing tool output files to be parsed', type=str, nargs=1, default='')
 parser.add_argument('--log_output', help='a file to which all output in this session will be logged (default: a new file in the '+\
@@ -551,7 +552,8 @@ parser.add_argument('--log_output', help='a file to which all output in this ses
 parser.add_argument('--log_command_history', help='a file in which to record the command history of this session (default: a new file in the '+\
                                                   '.whittler folder in your home directory)', type=str, nargs="?", default=None,
                                                   const=WHITTLER_DIRECTORY+'/{date:%Y-%m-%d_%H-%M-%S}_command_log.txt'.format( date=datetime.datetime.now() ))
-parser.add_argument('--import_whittler_output', help='consume and continue working with a file that was outputted by Whittler\'s "export" command"', type=str, nargs=1, default=None)
+parser.add_argument('--import_whittler_output', help='consume and continue working with a file that was outputted by Whittler\'s "export" command"',
+                                                 type=str, nargs=1, default=None)
 
 if __name__ == "__main__":
     args = parser.parse_args()
