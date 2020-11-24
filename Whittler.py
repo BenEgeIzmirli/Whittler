@@ -21,7 +21,7 @@ actions = {
         "dig [attr]" : "Dig into a specific data grouping category, either by attribute name, or by attribute id",
         "up" : "Dig up a level into the broader data grouping category",
         "top" : "Dig up to the top level",
-        "dump" : "Display every relevant result in every category",
+        "dump [[limit]]" : "Display every relevant result in every category, up to [limit] entries (shows all by default)",
         "exit" : "Gracefully exit the program"
     },
     "data model interaction" : {
@@ -373,9 +373,11 @@ def main_loop(resultdb):
                 resultdb.current_pointer.go_up_level()
             continue
         elif verb == "dump":
+            limit = get_int_from_args(args)
+            limit = limit if limit else None # get_int_from_args returns False if no value was supplied for the arg
             ptr = resultdb.root_pointer.copy()
             ptr.access_property("results")
-            wprint(resultdb.results.show_view()[0])
+            wprint(resultdb.results.show_view(limit=limit)[0])
         elif verb == "exit":
             sys.exit(0)
 

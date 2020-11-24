@@ -50,7 +50,7 @@ navigation:
 |   dig [attr]      :  Dig into a specific data grouping category, either by attribute name, or by attribute id
 |   up              :  Dig up a level into the broader data grouping category
 |   top             :  Dig up to the top level
-|   dump            :  Display every relevant result in every category
+|   dump [[limit]]  :  Display every relevant result in every category, up to [limit] entries (shows all by default)
 |   exit            :  Gracefully exit the program
 
 data model interaction:
