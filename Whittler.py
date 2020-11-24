@@ -360,7 +360,7 @@ def main_loop(resultdb):
         elif verb == "dump":
             ptr = resultdb.root_pointer.copy()
             ptr.access_property("results")
-            resultdb.results.show_view(ptr)
+            wprint(resultdb.results.show_view()[0])
         elif verb == "exit":
             sys.exit(0)
 
