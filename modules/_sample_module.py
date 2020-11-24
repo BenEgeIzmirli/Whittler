@@ -20,8 +20,9 @@ class SampleResult(Result):
     ]
 
     # This method (which must be declared as a staticmethod as below) is expected to take a filename, and return a list
-    # of dicts, each of which will be casted to an object of this class' type (in this case, SampleResult). An example
-    # of a valid return value would be:
+    # of dicts, each of which will be casted to an object of this class' type (in this case, SampleResult). These dicts
+    # MUST have a string as both a key and as a value - I hope to allow recursively nested structures in the future, but
+    # for now only string key/value pairs are supported. An example of a valid return value would be:
     # [
     #     {
     #         "full name" : "Chuntley Bortler",
@@ -30,7 +31,7 @@ class SampleResult(Result):
     #     },
     #     {
     #         "full name" : "Flubbles Troughslogger",
-    #         "address" : "42 Nilism St, Olesville KS 80085",
+    #         "address" : "42 Nilism St, Derridaville KS 80085",
     #         "phone number": "555-867-5309"
     #     }
     # ]
