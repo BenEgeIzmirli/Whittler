@@ -572,7 +572,7 @@ if __name__ == "__main__":
             sys.exit(1)
     try:
         resultdb = ResultDatabase(result_classes[args.config[0]])
-        if not args.dir and not args.file:
+        if not args.dir and not args.file and not args.import_whittler_output:
             parser.print_help()
             sys.exit(1)
         wprint("\nWelcome to the Whittler shell. Type \"help\" for a list of commands.\n")
@@ -582,6 +582,8 @@ if __name__ == "__main__":
             resultdb.parse_from_directory(args.dir[0])
         if args.file:
             resultdb.parse_from_file(args.file[0])
+        if args.import_whittler_output:
+            resultdb.parse_from_export(args.import_whittler_output[0])
         wprint("Done.\n")
         main_loop(resultdb)
     except:

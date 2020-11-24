@@ -3,6 +3,7 @@ from classes.NestedObjectPointer import NestedObjectPointer, NestedObjectPointer
 from config import Config
 from collections import OrderedDict
 import os
+import json
 import numpy as np
 try:
     from pyxdameraulevenshtein import normalized_damerau_levenshtein_distance_ndarray
@@ -122,6 +123,12 @@ class ResultDatabase(RelevanceInterface):
     def parse_from_directory(self,dirname):
         for output_file in os.listdir(dirname):
             self.parse_from_file(dirname+"/"+output_file)
+    
+    def parse_from_export(self,fname):
+        with open(fname, "r") as f:
+            results = json.loads(f.read())
+            for result in results:
+                self.add_result(self.result_class(result))
 
 
     #######################################
