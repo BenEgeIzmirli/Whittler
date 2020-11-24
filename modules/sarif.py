@@ -39,20 +39,28 @@ class SarifResult(Result):
 
     @staticmethod
     def give_result_dict_list(fname):
+        if not fname.endswith(".sarif"):
+            print(f"Warning: ignoring {fname} as its filename does not end with \".sarif\".")
+            return []
         with open(fname,"r", encoding=SarifResult.Config.FILE_ENCODING) as f:
             sarif_json = json.loads(f.read())
         
-        if sarif_json["version"] != "2.1.0":
-            print(f"Warning: only SARIF v2.1.0 is currently supported, found v{sarif_json['version']} in {fname}")
-            return []
-        
-        run = sarif_json["runs"][0]
-
         all_keys = set()
 
-        # Get the rules, collapsed recursively, as a list of rule dictionaries
-        rules = [SarifResult.collapse_recursive_json(rule) for rule in run["tool"]["driver"]["rules"]]
+        run = sarif_json["runs"][0]
+        
+        version = sarif_json["version"]
 
+        # Get the rules, collapsed recursively, as a list of rule dictionaries (version-dependent)
+        if version == "2.1.0":
+            rules = [SarifResult.collapse_recursive_json(rule) for rule in run["tool"]["driver"]["rules"]]
+            
+        elif version == "1.0.0":
+            rules = [SarifResult.collapse_recursive_json(rule) for rule in run["rules"].values()]
+        else:
+            print(f"Warning: Unsupported SARIF version v{version}")
+            return []
+        
         # Sort rules into a dict indexed by rule ID
         rules = {rule["id"]:rule for rule in rules}
         for rule in rules.values():
@@ -73,7 +81,7 @@ class SarifResult(Result):
         
         # set this class' ATTRIBUTES to reflect all the keys we've collected - otherwise we'll have errors
         # when casting the returned dictionaries to SarifResult objects
-        SarifResult.ATTRIBUTES = list(all_keys)
+        SarifResult.ATTRIBUTES = list(set(all_keys|set(SarifResult.ATTRIBUTES)))
 
         for r in ret:
             # get the rule corresponding to this result
@@ -83,9 +91,9 @@ class SarifResult(Result):
             for k,v in rule.items():
                 r[f"rules.{k}"] = v
             
-            # If a key in all_keys is not present, then add it as an empty string - every result dictionary
+            # If a key in ATTRIBUTES is not present, then add it as an empty string - every result dictionary
             # returned must have every attribute specified in this class' ATTRIBUTES variable
-            for k in all_keys:
+            for k in SarifResult.ATTRIBUTES:
                 if k not in r:
                     r[k] = ""
         return ret

@@ -96,7 +96,10 @@ class ResultDatabase(RelevanceInterface):
     def find_similar_results(self, attrname, groupval, similarity_threshold=None):
         if similarity_threshold is None:
             similarity_threshold = self.Config.SIMILARITY_THRESHOLD
-        all_results = [res for res in list.__iter__(self.results)]
+        if not groupval.strip():
+            all_results = [res for res in list.__iter__(self.results) if hasattr(res,attrname) and res[attrname].strip()]
+        else:
+            all_results = [res for res in list.__iter__(self.results)]
         attrarray = np.array([res[attrname].strip() for res in all_results])
         normalized_distances = self.compute_distances(groupval, attrarray)
         return [res for res,_ in filter(lambda tup:tup[1]>similarity_threshold, zip(all_results, normalized_distances))]

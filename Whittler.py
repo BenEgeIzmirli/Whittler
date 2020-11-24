@@ -152,6 +152,7 @@ def group_interactive(resultdb, groupattr, groupval):
     wprint("Creating a result group set based on this attribute value...")
     SIMILARITY_THRESHOLD = resultdb.Config.SIMILARITY_THRESHOLD
     while True:
+        print(SIMILARITY_THRESHOLD)
         similar_results = resultdb.find_similar_results(groupattr, groupval, similarity_threshold=SIMILARITY_THRESHOLD)
         wprint()
         for val in sorted(set([res[groupattr] for res in similar_results])):
@@ -234,17 +235,19 @@ def get_and_parse_user_input():
         args[i] = args[i].replace("###_TRUFFLEHOG_DOUBLE_QUOTE_###","\\\"")
     return (verb,args,redirect)
 
+irrelevance_filters = []
 def play_elimination_game(resultdb, obj):
+    global irrelevance_filters
     game_actions = {
         1 : "mark as relevant",
         2 : "mark as irrelevant",
         3 : "mark as ambiguous",
-        4 : "quit game"
+        4 : "quit game",
+        5 : "clear relevancy filters"
     }
-    relevant_filters = []
     def filterfunc(result):
-        for attr, value in relevant_filters:
-            if result[attr] == value:
+        for attr, value in irrelevance_filters:
+            if result[attr].strip() == value.strip():
                 return False
         return True
     while True:
@@ -261,7 +264,9 @@ def play_elimination_game(resultdb, obj):
         answer = winput(question)
         try:
             answer = int(answer)
-            assert answer in game_actions.keys()
+            if not answer in game_actions.keys():
+                wprint("Unrecognized choice.")
+                continue
         except:
             wprint("\n > Failed to parse action.")
             continue
@@ -274,8 +279,18 @@ def play_elimination_game(resultdb, obj):
         elif answer == 1:
             wprint()
             relevant_attr = select_attribute(resultdb, "Which specific value makes this result definitely relevant? ")
-            relevant_filters.append((relevant_attr,random_result[relevant_attr]))
+            irrelevance_filters.append((relevant_attr,random_result[relevant_attr]))
+            wprint("OK, I'll ignore results with that value for that attribute for the rest of the game.")
             continue
+        elif answer == 5:
+            wprint("Currently, you have relevancy filters on the following attributes:")
+            for attr, value in irrelevance_filters:
+                wprint(attr)
+            confirm = winput("Are you sure you want to clear these relevancy filters? (Y/n) ")
+            if confirm.lower() == "n":
+                irrelevance_filters = []
+                wprint("Cleared.")
+                continue
         # answer must be 2 (irrelevant) past this point.
         wprint("\n > OK, this result will be marked as irrelevant.\n")
         random_result.mark_irrelevant()
