@@ -145,7 +145,10 @@ def select_attribute(resultdb, msg):
     for i in range(len(attrs)):
         wprint(f" {i} : {attrs[i]}")
     wprint()
-    index = int(winput(msg))
+    try:
+        index = int(winput(msg))
+    except ValueError:
+        return None
     return attrs[index]
 
 def group_interactive(resultdb, groupattr, groupval):
@@ -158,7 +161,7 @@ def group_interactive(resultdb, groupattr, groupval):
         for val in sorted(set([res[groupattr] for res in similar_results])):
             wprint(f"   {val.strip()}")
         wprint()
-        wprint(f"I found {len(similar_results)} similar results with {groupattr} values as shown above.")
+        wprint(f"I found {len(similar_results)} similar results with \"{groupattr}\" values as shown above.")
         wprint("I want to create a result group set based on these findings, but I want to make sure it's OK.")
         while True:
             grouping_choice = winput("Is this grouping OK (1), too conservative (2), or too liberal (3)? Or, just abandon the group creation (4)? ")
@@ -185,7 +188,7 @@ def group_interactive(resultdb, groupattr, groupval):
             wprint("OK, abandoning group creation.")
             break
         resultdb.register_grouped_results(groupattr, groupval, similar_results)
-        wprint("Created result set based on this entry.")
+        wprint("Created result group based on this entry. You can view this group in the \"groups\" pane in the top context.")
         ptr = NestedObjectPointer(resultdb)
         ptr.access_property("grouped_results")
         ptr.get_by_index(groupval)
@@ -265,16 +268,16 @@ def play_elimination_game(resultdb, obj):
         try:
             answer = int(answer)
             if not answer in game_actions.keys():
-                wprint("Unrecognized choice.")
+                wprint("Unrecognized selection.")
                 continue
-        except:
-            wprint("\n > Failed to parse action.")
+        except ValueError:
+            wprint("Unrecognized selection.")
             continue
         if answer == 4:
-            wprint("\n > Ending game, thanks for playing.")
+            wprint("\nEnding game, thanks for playing.")
             break
         elif answer == 3:
-            wprint("\n > OK, taking no action.")
+            wprint("\nOK, taking no action.")
             continue
         elif answer == 1:
             wprint()
@@ -292,29 +295,84 @@ def play_elimination_game(resultdb, obj):
                 wprint("Cleared.")
                 continue
         # answer must be 2 (irrelevant) past this point.
-        wprint("\n > OK, this result will be marked as irrelevant.\n")
+        wprint("\nOK, this result will be marked as irrelevant.\n")
         random_result.mark_irrelevant()
         num_results_eliminated = 1
-        problematic_attr = select_attribute(resultdb, "Which attribute's value makes this result irrelevant? ")
-        specific_or_general = winput("Should I create a group based on this value (Y)? Or is it this specific value that makes it irrelevant (n)? ")
-        make_group = specific_or_general.lower() != "n"
-        if not make_group:
-            irrelevant_resultlist = resultdb.categorized_results[problematic_attr][random_result[problematic_attr]]
-            num_results_eliminated = len(irrelevant_resultlist)
-            irrelevant_resultlist.mark_irrelevant()
-        else:
-            group_ptr = group_interactive(resultdb, problematic_attr, random_result[problematic_attr])
-            if group_ptr is None:
+        wprint("I can try to find other results similar to this one through various heuristics, and mark them irrelevant as well.\n")
+
+        search_actions = {
+            1 : "contains this specific value",
+            2 : "contains a substring of this value (case-insensitive)",
+            3 : "loosely resembles this value (fuzzy string matching)",
+            4 : "never mind"
+        }
+        initial_str = "OK. To start, which"
+        again_str = "Search for similar results? (y/N) "
+        while True:
+            go_again = winput(again_str)
+            if go_again is None:
+                wprint("Unrecognized input.")
                 continue
-            irrelevant_resultdict = group_ptr.give_pointed_object()
-            num_results_eliminated = len(irrelevant_resultdict.all_result_objects())
-            irrelevant_resultdict.mark_irrelevant()
-        excitement = num_results_eliminated//100
-        report = f"\n > Eliminating {num_results_eliminated} results{'.' if not excitement else ''}{'!'*excitement}\n"
-        if excitement >= 3:
-            report = report.upper()
-        wprint(report)
-        time.sleep(excitement+1 if excitement < 3 else 3)
+            again_str = "Search again? (y/N)"
+            if not go_again.strip() or go_again.lower() != "y":
+                break
+            wprint()
+            wprint("\n".join(["| "+line for line in random_result.show_view()[0].splitlines()]))
+            wprint()
+            problematic_attr = select_attribute(resultdb, f"{initial_str} attribute's value makes this result irrelevant? ")
+            initial_str = "Which"
+            if not problematic_attr:
+                wprint("Unrecognized selection.")
+                continue
+            wprint(f"\n\nFor reference, here is the value of the \"{problematic_attr}\" attribute for this result:")
+            wprint("_"*Config.MAX_OUTPUT_WIDTH)
+            wprint(random_result[problematic_attr])
+            wprint("^"*Config.MAX_OUTPUT_WIDTH)
+
+            question = f"\nI can search for results where the \"{problematic_attr}\" attribute:\n"
+            for action_id, action_description in search_actions.items():
+                question += f" {action_id} : {action_description.format(problematic_attr)}\n"
+            question += "\naction? "
+            answer = winput(question)
+            try:
+                answer = int(answer)
+                if not answer in search_actions.keys():
+                    wprint("Unrecognized selection.")
+                    continue
+            except ValueError:
+                wprint("Unrecognized selection.")
+                continue
+            generate_report = True
+            if answer == 1:
+                irrelevant_resultlist = resultdb.categorized_results[problematic_attr][random_result[problematic_attr]]
+                num_results_eliminated = len(irrelevant_resultlist)
+                irrelevant_resultlist.mark_irrelevant()
+            elif answer == 2:
+                substring = winput("What is the substring you would like to filter by? ")
+                if substring.lower() not in random_result[problematic_attr].lower():
+                    wprint(f"Sorry, that is not a case-insensitive substring of this result's \"{problematic_attr}\" attribute...")
+                    continue
+                irrelevant_resultlist = resultdb.categorized_results[problematic_attr][random_result[problematic_attr]]
+                for result in resultdb.results:
+                    if substring.lower() in result[problematic_attr].lower():
+                        result.mark_irrelevant()
+                        num_results_eliminated += 1
+            elif answer == 3:
+                group_ptr = group_interactive(resultdb, problematic_attr, random_result[problematic_attr])
+                if group_ptr is None:
+                    continue
+                irrelevant_resultdict = group_ptr.give_pointed_object()
+                num_results_eliminated = len(irrelevant_resultdict.all_result_objects())
+                irrelevant_resultdict.mark_irrelevant()
+            elif answer == 4:
+                generate_report = False
+            
+            if generate_report:
+                excitement = num_results_eliminated//100
+                report = f"\n > Eliminating {num_results_eliminated} results{'.' if not excitement else ''}{'!'*excitement}\n"
+                if excitement >= 3:
+                    report = report.upper()
+                wprint(report)
 
 def main_loop(resultdb):
     global redirect_file, global_redirect_file
@@ -441,14 +499,14 @@ def main_loop(resultdb):
                 wprint("Need to provide a string to filter by.")
                 continue
             filter_str = args[0]
-            quieted_attr = get_attrname_from_attribute_arg(resultdb, args, attr_arg_position=1)
-            if quieted_attr is False:
-                quieted_attr = select_attribute(resultdb, "Which attribute would you like to filter by? ")
-            elif quieted_attr is None:
+            filtered_attr = get_attrname_from_attribute_arg(resultdb, args, attr_arg_position=1)
+            if filtered_attr is False:
+                filtered_attr = select_attribute(resultdb, "Which attribute would you like to filter by? ")
+            elif filtered_attr is None:
                 continue
             ct = 0
             for result in resultdb.results:
-                if filter_str.lower() in result[quieted_attr].lower():
+                if filter_str.lower() in result[filtered_attr].lower():
                     result.mark_irrelevant()
                     ct += 1
             wprint(f"Marked {ct} results as irrelevant using the filter.")

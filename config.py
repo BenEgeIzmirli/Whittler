@@ -22,6 +22,7 @@ class Config:
     # where both dl_similarity and ro_similarity are scaled from 0 to 1, with 1 being the most similar.
     SIMILARITY_EXPONENT = 2
 
+    # The maximum printing width of the console, when printing tables and a few other things.
     MAX_OUTPUT_WIDTH = 120
 
     @classmethod
