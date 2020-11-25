@@ -9,6 +9,7 @@ try:
     from pyxdameraulevenshtein import normalized_damerau_levenshtein_distance_ndarray
 except ImportError:
     print("Warning: pyxDamerauLevenshtein module not detected, fuzzy grouping logic will be impaired.")
+    print("         To install it, run 'pip install pyxDamerauLevenshtein'.")
     normalized_damerau_levenshtein_distance_ndarray = lambda reference, values: np.array([1 for v in values])
 import difflib
 
