@@ -1,6 +1,7 @@
 # just miscellany
 staticanalysis-IOT-runs/
 modules/ripsaw.py
+*__pycache__/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

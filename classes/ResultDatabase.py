@@ -1,4 +1,4 @@
-from classes.Result import RelevanceInterface, Result, ResultDictContainer, RelevanceFilteredResultList
+from classes.Result import RelevanceInterface, Result, ResultDictContainer, RelevanceFilteredResultList, ValueLengthSortedResultDict
 from classes.NestedObjectPointer import NestedObjectPointer, NestedObjectPointerInterface
 from config import Config
 from collections import OrderedDict
@@ -46,11 +46,11 @@ class ResultDatabase(RelevanceInterface):
     #  Navigation functions
     #
 
-    def construct_view(self, pointer=None, limit=None):
+    def construct_view(self, pointer=None, limit=None, show_irrelevant=False):
         if pointer == None:
             pointer = self.current_pointer
         obj = pointer.give_pointed_object()
-        viewstr, ptrdict = obj.show_view(pointer_to_me=pointer, limit=limit)
+        viewstr, ptrdict = obj.show_view(pointer_to_me=pointer, limit=limit, show_irrelevant=show_irrelevant)
         return (viewstr, ptrdict)
     
     def update_current_view(self, limit=None):
@@ -167,7 +167,7 @@ class ResultDatabase(RelevanceInterface):
     def all_result_objects(self):
         return self.results.all_result_objects()
     
-    def show_view(self, pointer_to_me=None, ct=0, limit=None):
+    def show_view(self, pointer_to_me=None, ct=0, limit=None, show_irrelevant=False):
         s = "\n"
         s += "+=================================+\n"
         s += "|  {:6d} total relevant results  |\n".format(len(self.results))
@@ -176,7 +176,7 @@ class ResultDatabase(RelevanceInterface):
         for childname, childptr in self.give_child_pointers(self.root_pointer).items():
             s += f"\n{childname}:\n"
             childobj = childptr.give_pointed_object()
-            s2, resultdict = childobj.show_view(childptr, ct=ct, limit=limit)
+            s2, resultdict = childobj.show_view(childptr, ct=ct, limit=limit, show_irrelevant=show_irrelevant)
             s += s2
             for k,v in resultdict.items():
                 ret[k] = v

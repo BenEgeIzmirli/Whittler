@@ -151,7 +151,7 @@ class Result(dict, RelevanceInterface):
     def all_result_objects(self):
         return [self]
 
-    def show_view(self, pointer_to_me=None, ct=0):
+    def show_view(self, pointer_to_me=None, ct=0, limit=None, show_irrelevant=False):
         return (self.pretty_repr(), pointer_to_me)
     
     def export(self):
@@ -223,7 +223,7 @@ class RelevanceFilteredResultList(list, RelevanceInterface):
     def all_result_objects(self):
         return [result for result in self]
 
-    def show_view(self, pointer_to_me=None, ct=0, limit=None):
+    def show_view(self, pointer_to_me=None, ct=0, limit=None, show_irrelevant=False):
         ret = OrderedDict()
         s = ""
         def adds(string, prefix=""):
@@ -231,7 +231,7 @@ class RelevanceFilteredResultList(list, RelevanceInterface):
             s += prefix + string + "\n"
         for key, ptr in self.give_child_pointers(pointer_to_me).items():
             result = self[key]
-            if not result.relevant:
+            if not show_irrelevant and not result.relevant:
                 continue
             result_id = str(hash(result))[:6]
             if not result.SUPER_SOLO_ATTRIBUTE is None:
@@ -306,12 +306,14 @@ class ValueLengthSortedResultDict(defaultdict, RelevanceInterface):
             ret.extend(resultcontainer.all_result_objects())
         return ret
 
-    def show_view(self, pointer_to_me=None, ct=0, limit=None):
+    def show_view(self, pointer_to_me=None, ct=0, limit=None, show_irrelevant=False):
         max_width = self.Config.MAX_OUTPUT_WIDTH
         ret = OrderedDict()
         lines = []
         for key, ptr in self.give_child_pointers(pointer_to_me).items():
             value = self[key]
+            if not show_irrelevant and not len(value):
+                continue
             sanitized_key = key.strip().replace("\n","\\n")
             line = "| {:4d} | {:5d} | {:8d} | {}".format(ct,value.real_length(),len(value),sanitized_key)
             if len(line) > max_width-2:

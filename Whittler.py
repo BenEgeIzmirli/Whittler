@@ -17,11 +17,16 @@ import time
 
 actions = {
     "navigation" : {
-        "show [[limit]]" : "Show the current data context, up to [limit] entries (shows all entries by default)",
+        "show [[limit]]" : "Show the current data context, up to [limit] entries (shows all entries by default). Mutes "+\
+                           "results or table entries with 0 relevant results.",
+        "showall [[limit]]" : "Show the current data context, up to [limit] entries (shows all entries by default). Includes "+\
+                              "results or table entries with 0 relevant results.",
         "dig [attr]" : "Dig into a specific data grouping category, either by attribute name, or by attribute id",
         "up" : "Dig up a level into the broader data grouping category",
         "top" : "Dig up to the top level",
         "dump [[limit]]" : "Display every relevant result in every category, up to [limit] entries (shows all by default)",
+        "dumpall [[limit]]" : "Display every result, both relevant and irrelevant, in every category, up to [limit] entries "+\
+                              "(shows all by default)",
         "exit" : "Gracefully exit the program"
     },
     "data model interaction" : {
@@ -239,8 +244,10 @@ def get_and_parse_user_input():
     return (verb,args,redirect)
 
 irrelevance_filters = []
+already_marked_relevant = []
 def play_elimination_game(resultdb, obj):
     global irrelevance_filters
+    global already_marked_relevant
     game_actions = {
         1 : "mark as relevant",
         2 : "mark as irrelevant",
@@ -280,7 +287,8 @@ def play_elimination_game(resultdb, obj):
             wprint("\nOK, taking no action.")
             continue
         elif answer == 1:
-            wprint()
+            wprint("\nOK, taking no action.")
+            continue
             relevant_attr = select_attribute(resultdb, "Which specific value makes this result definitely relevant? ")
             irrelevance_filters.append((relevant_attr,random_result[relevant_attr]))
             wprint("OK, I'll ignore results with that value for that attribute for the rest of the game.")
@@ -408,6 +416,11 @@ def main_loop(resultdb):
             limit = limit if limit else None # get_int_from_args returns False if no value was supplied for the arg
             wprint(resultdb.construct_view(limit=limit)[0])
             continue
+        elif verb == "showall":
+            limit = get_int_from_args(args)
+            limit = limit if limit else None # get_int_from_args returns False if no value was supplied for the arg
+            wprint(resultdb.construct_view(limit=limit, show_irrelevant=True)[0])
+            continue
         elif verb == "dig":
             ptr = get_ptr_from_id_arg(resultdb, args)
             if ptr is False:
@@ -433,8 +446,11 @@ def main_loop(resultdb):
         elif verb == "dump":
             limit = get_int_from_args(args)
             limit = limit if limit else None # get_int_from_args returns False if no value was supplied for the arg
-            ptr = resultdb.root_pointer.copy()
-            ptr.access_property("results")
+            wprint(resultdb.results.show_view(limit=limit)[0])
+        elif verb == "dumpall":
+            limit = get_int_from_args(args)
+            limit = limit if limit else None # get_int_from_args returns False if no value was supplied for the arg
+            # todo
             wprint(resultdb.results.show_view(limit=limit)[0])
         elif verb == "exit":
             sys.exit(0)
