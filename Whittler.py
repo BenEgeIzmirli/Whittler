@@ -663,6 +663,9 @@ if __name__ == "__main__":
         except PermissionError:
             print("Lacking permissions to write to the specified command history log file.")
             sys.exit(1)
+    if args.config is None:
+        parser.print_help()
+        sys.exit(1)
     try:
         resultdb = ResultDatabase(result_classes[args.config[0]])
         if not args.dir and not args.file and not args.import_whittler_output:
