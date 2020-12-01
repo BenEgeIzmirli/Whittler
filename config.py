@@ -23,7 +23,7 @@ class Config:
     SIMILARITY_EXPONENT = 2
 
     # The maximum printing width of the console, when printing tables and a few other things.
-    MAX_OUTPUT_WIDTH = 120
+    MAX_OUTPUT_WIDTH = 300#120
 
     @classmethod
     def copy(cls, overridden_values={}):

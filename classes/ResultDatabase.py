@@ -2,6 +2,7 @@ from classes.Result import RelevanceInterface, Result, ResultDictContainer, Rele
 from classes.NestedObjectPointer import NestedObjectPointer, NestedObjectPointerInterface
 from config import Config
 from collections import OrderedDict
+import time
 import os
 import json
 import numpy as np
@@ -120,9 +121,17 @@ class ResultDatabase(RelevanceInterface):
     #
 
     def parse_from_file(self,fname):
-        for resultdict in self.result_class.give_result_dict_list(fname):
+        result_dict_list = self.result_class.give_result_dict_list(fname)
+        last_report = time.time()
+        ct = 0
+        for resultdict in result_dict_list:
+            cur_time = time.time()
+            if cur_time-last_report > 5:
+                print(f"{(int((ct/len(result_dict_list)*100)))}% done ({ct} out of {len(result_dict_list)})")
+                last_report = cur_time
             resultdict["whittler_filename"] = fname
             self.add_result(self.result_class(resultdict))
+            ct += 1
 
     def parse_from_directory(self,dirname):
         for output_file in os.listdir(dirname):
@@ -132,8 +141,25 @@ class ResultDatabase(RelevanceInterface):
     def parse_from_export(self,fname):
         with open(fname, "r") as f:
             results = json.loads(f.read())
-            for result in results:
-                self.add_result(self.result_class(result))
+        first_result_keys = set(results[0].keys())
+        for result in results:
+            if first_result_keys ^ set(result.keys()): # check symmetric difference, basically ensure that they're equal
+                raise Exception("invalid Whittler export file")
+        if not isinstance(self.result_class.ATTRIBUTES, list):
+            self.result_class.ATTRIBUTES = []
+        attrs = self.result_class.ATTRIBUTES
+        for key in results[0].keys(): # don't use first_result_keys because the json is ordered whereas sets are not
+            if key not in attrs:
+                attrs.append(key)
+        last_report = time.time()
+        ct = 0
+        for result in results:
+            cur_time = time.time()
+            if cur_time-last_report > 5:
+                print(f"{(int((ct/len(results)*100)))}% done ({ct} out of {len(results)})")
+                last_report = cur_time
+            self.add_result(self.result_class(result))
+            ct += 1
 
 
     #######################################

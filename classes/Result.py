@@ -176,6 +176,8 @@ class RelevanceFilteredResultList(list, RelevanceInterface):
     def __len__(self):
         return len([e for e in self])
     
+    # todo: speed up "result in RFRLobj" lookups - most of the time is spent checking "if result in self.results" in ResultDatabase.add_result
+    
     def append(self, newitem):
         assert isinstance(newitem, RelevanceInterface)
         list.append(self,newitem)
