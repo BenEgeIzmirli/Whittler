@@ -1,7 +1,7 @@
 from classes.Result import Result
 from config import Config
 import json
-import requests
+from collections import defaultdict
 # try:
 #     import jsonschema
 # except ImportError:
@@ -18,7 +18,7 @@ class SarifResult(Result):
     ATTRIBUTES = []
 
     @staticmethod
-    def collapse_recursive_json(js:dict,prefix=[]):
+    def collapse_recursive_json(js:dict,prefix=[],ct=""):
         ret = {}
         if not isinstance(js, dict):
             ret[".".join(prefix)] = str(js)
@@ -26,12 +26,15 @@ class SarifResult(Result):
         for k,v in js.items():
             if isinstance(v,list):
                 prefix.append(k)
+                ct = 1
                 for e in v:
-                    ret = {**ret,**SarifResult.collapse_recursive_json(e)}
+                    ret = {**ret,**SarifResult.collapse_recursive_json(e,ct=ct)}
+                    ct += 1
                 prefix.pop()
             elif isinstance(v,dict):
-                prefix.append(k)
-                ret = {**ret,**SarifResult.collapse_recursive_json(v)}
+                prefix.append(f"{k}{ct}")
+                new_dict = SarifResult.collapse_recursive_json(v)
+                ret = {**ret,**new_dict}
                 prefix.pop()
             else:
                 ret[".".join([*prefix,k])] = v
@@ -76,6 +79,28 @@ class SarifResult(Result):
         
         # get the results, collapsed recursively, as a list of result dictionaries
         ret = [SarifResult.collapse_recursive_json(result) for result in run["results"]]
+        if version == "2.1.0" or version == "1.0.0":
+            results = []
+            for rawresult in (SarifResult.collapse_recursive_json(result) for result in ret):
+                result = {}
+                regiondict = defaultdict(dict)
+                for k,v in rawresult.items():
+                    if "region" in k:
+                        klist = k.split(".")
+                        region_key_list = []
+                        i = 0
+                        while "region" not in klist[i]:
+                            region_key_list.append(klist[i])
+                            i += 1
+                        region_key_list.append(klist[i])
+                        region_key = ".".join(region_key_list)
+                        regiondict[region_key][".".join(klist[i+1:])] = v
+                    else:
+                        result[k] = v
+                for k,v in regiondict.items():
+                    result[k] = str(dict(sorted(v.items())))
+                results.append(result)
+            ret = results
 
         # add the union of all result attributes into the all_keys set
         for r in ret:
