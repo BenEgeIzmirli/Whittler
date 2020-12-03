@@ -48,24 +48,24 @@ class ResultDatabase(RelevanceInterface):
     #  Navigation functions
     #
 
-    def construct_view(self, pointer=None, limit=None, show_irrelevant=False):
+    def construct_view(self, pointer=None, limit=None, show_irrelevant=False, sort_by=None):
         if pointer == None:
             pointer = self.current_pointer
         obj = pointer.give_pointed_object()
-        viewstr, ptrdict = obj.show_view(pointer_to_me=pointer, limit=limit, show_irrelevant=show_irrelevant)
+        viewstr, ptrdict = obj.show_view(pointer_to_me=pointer, limit=limit, show_irrelevant=show_irrelevant, sort_by=sort_by)
         return (viewstr, ptrdict)
     
-    def update_current_view(self, limit=None):
-        viewstr, ptrcontext = self.construct_view(self.current_pointer,limit=limit)
+    def update_current_view(self, limit=None, sort_by=None):
+        viewstr, ptrcontext = self.construct_view(self.current_pointer,limit=limit, sort_by=sort_by)
         self.context_pointers = ptrcontext
         return viewstr
     
-    def navigate_view(self, pointer=None, limit=None):
+    def navigate_view(self, pointer=None, limit=None, sort_by=None):
         if pointer is None:
             self.current_pointer = self.root_pointer.copy()
         else:
             self.current_pointer = pointer.copy()
-        return self.update_current_view(limit=limit)
+        return self.update_current_view(limit=limit, sort_by=sort_by)
     
 
     #######################
@@ -194,7 +194,7 @@ class ResultDatabase(RelevanceInterface):
     def all_result_objects(self):
         return self.results.all_result_objects()
     
-    def show_view(self, pointer_to_me=None, ct=0, limit=None, show_irrelevant=False):
+    def show_view(self, pointer_to_me=None, ct=0, limit=None, show_irrelevant=False, sort_by=None):
         s = "\n"
         s += "+=================================+\n"
         s += "|  {:6d} total relevant results  |\n".format(len(self.results))
@@ -203,7 +203,7 @@ class ResultDatabase(RelevanceInterface):
         for childname, childptr in self.give_child_pointers(self.root_pointer).items():
             s += f"\n{childname}:\n"
             childobj = childptr.give_pointed_object()
-            s2, resultdict = childobj.show_view(childptr, ct=ct, limit=limit, show_irrelevant=show_irrelevant)
+            s2, resultdict = childobj.show_view(childptr, ct=ct, limit=limit, show_irrelevant=show_irrelevant, sort_by=sort_by)
             s += s2
             for k,v in resultdict.items():
                 ret[k] = v

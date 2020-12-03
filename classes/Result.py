@@ -151,7 +151,7 @@ class Result(dict, RelevanceInterface):
     def all_result_objects(self):
         return [self]
 
-    def show_view(self, pointer_to_me=None, ct=0, limit=None, show_irrelevant=False):
+    def show_view(self, pointer_to_me=None, ct=0, limit=None, show_irrelevant=False, sort_by=None):
         return (self.pretty_repr(), pointer_to_me)
     
     def export(self):
@@ -225,13 +225,16 @@ class RelevanceFilteredResultList(list, RelevanceInterface):
     def all_result_objects(self):
         return [result for result in self]
 
-    def show_view(self, pointer_to_me=None, ct=0, limit=None, show_irrelevant=False):
+    def show_view(self, pointer_to_me=None, ct=0, limit=None, show_irrelevant=False, sort_by=None):
         ret = OrderedDict()
         s = ""
         def adds(string, prefix=""):
             nonlocal s
             s += prefix + string + "\n"
-        for key, ptr in self.give_child_pointers(pointer_to_me).items():
+        child_ptrdict = self.give_child_pointers(pointer_to_me)
+        if not sort_by is None:
+            child_ptrdict = OrderedDict(reversed(sorted(child_ptrdict.items(), key=lambda tup: self[tup[0]][sort_by])))
+        for key, ptr in child_ptrdict.items():
             result = self[key]
             if not show_irrelevant and not result.relevant:
                 continue
@@ -308,15 +311,34 @@ class ValueLengthSortedResultDict(defaultdict, RelevanceInterface):
             ret.extend(resultcontainer.all_result_objects())
         return ret
 
-    def show_view(self, pointer_to_me=None, ct=0, limit=None, show_irrelevant=False):
+    def show_view(self, pointer_to_me=None, ct=0, limit=None, show_irrelevant=False, sort_by=None):
         max_width = self.Config.MAX_OUTPUT_WIDTH
         ret = OrderedDict()
-        lines = []
-        for key, ptr in self.give_child_pointers(pointer_to_me).items():
+        
+        child_pointers = self.give_child_pointers(pointer_to_me)
+        child_repr_values = OrderedDict()
+        for key, ptr in child_pointers.items():
             value = self[key]
+            sanitized_key = key.strip().replace("\n","\\n").replace("\r","\\r") # todo: sanitize more thoroughly
+            child_repr_values[key] = (ct,value.real_length(),len(value),sanitized_key)
+        if sort_by == "total":
+            ordered_keys = dict(reversed(sorted(child_repr_values.items(), key=lambda tup: tup[1][1]))).keys()
+        elif sort_by == "relevant":
+            ordered_keys = dict(reversed(sorted(child_repr_values.items(), key=lambda tup: tup[1][2]))).keys()
+        elif sort_by == "attribute value":
+            ordered_keys = dict(sorted(child_repr_values.items(), key=lambda tup: tup[1][3])).keys()
+        else:
+            ordered_keys = child_repr_values.keys()
+        
+        lines = []
+        for key in ordered_keys:
+            value = self[key]
+            ptr = child_pointers[key]
+        # for key, ptr in self.give_child_pointers(pointer_to_me).items():
+        #     value = self[key]
             if not show_irrelevant and not len(value):
                 continue
-            sanitized_key = key.strip().replace("\n","\\n")
+            sanitized_key = key.strip().replace("\n","\\n").replace("\r","\\r") # todo: sanitize more thoroughly
             line = "| {:4d} | {:5d} | {:8d} | {}".format(ct,value.real_length(),len(value),sanitized_key)
             if len(line) > max_width-2:
                 line = line[:max_width-2-7]+" [...] "

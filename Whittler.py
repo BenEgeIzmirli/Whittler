@@ -12,11 +12,12 @@ import json
 
 def main_loop(resultdb):
     global redirect_file, global_redirect_file
+    sort_by = None
     while True:
         if not redirect_file is None:
             redirect_file.close()
             redirect_file = None
-        resultdb.update_current_view()
+        resultdb.update_current_view(sort_by=sort_by)
         user_input = get_and_parse_user_input()
         if user_input is None:
             continue
@@ -42,12 +43,12 @@ def main_loop(resultdb):
         elif verb == "show":
             limit = get_int_from_args(args)
             limit = limit if limit else None # get_int_from_args returns False if no value was supplied for the arg
-            wprint(resultdb.construct_view(limit=limit)[0])
+            wprint(resultdb.construct_view(limit=limit, sort_by=sort_by)[0])
             continue
         elif verb == "showall":
             limit = get_int_from_args(args)
             limit = limit if limit else None # get_int_from_args returns False if no value was supplied for the arg
-            wprint(resultdb.construct_view(limit=limit, show_irrelevant=True)[0])
+            wprint(resultdb.construct_view(limit=limit, show_irrelevant=True, sort_by=sort_by)[0])
             continue
         elif verb == "dig":
             ptr = get_ptr_from_id_arg(resultdb, args)
@@ -56,12 +57,14 @@ def main_loop(resultdb):
                 continue
             if ptr is None:
                 continue
+            sort_by = None
             resultdb.navigate_view(ptr)
             continue
         elif verb == "up":
             if resultdb.current_pointer.is_base_pointer():
                 wprint("Already at root context.\n")
                 continue
+            sort_by = None
             resultdb.current_pointer.go_up_level()
             # We want to pop out from the categorized_results or grouped_results contexts implicitly.
             if len(resultdb.current_pointer.path) == 1:
@@ -70,6 +73,7 @@ def main_loop(resultdb):
         elif verb == "top":
             while not resultdb.current_pointer.is_base_pointer():
                 resultdb.current_pointer.go_up_level()
+            sort_by = None
             continue
         elif verb == "dump":
             limit = get_int_from_args(args)
@@ -217,6 +221,11 @@ def main_loop(resultdb):
         elif verb == "unsolo":
             resultdb.result_class.SOLO_ATTRIBUTE = None
             resultdb.result_class.SUPER_SOLO_ATTRIBUTE = None
+            continue
+        elif verb == "sort":
+            if not len(args):
+                wprint("Need a column name or attribute value to sort by.")
+            sort_by = args[0]
             continue
         elif verb == "history":
             wprint()

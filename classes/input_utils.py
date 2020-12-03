@@ -38,7 +38,7 @@ actions = {
         "SOLO [[attr]]" : "Print ONLY a single attribute's value when printing out raw result data, with no context IDs or "+\
                  "attribute value names",
         "unsolo" : "Disable solo mode. Note that this retains any attributes suppressed using the \"quiet\" command.",
-        # sort
+        "sort [colname]" : "Sorts the displayed results by column name. Use quotes if the column name has a space in it.",
         "history" : "Print all commands that have been run in this session so far",
         "export [fname] [[id]]" : "Export all relevant results in JSON form at into the file [fname]. Optionally, limit "+\
                                   "the output to the result set as referenced by [id]."
