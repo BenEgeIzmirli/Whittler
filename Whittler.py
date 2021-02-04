@@ -278,7 +278,7 @@ for fname in filter(lambda s: not s.startswith("_") , os.listdir(os.path.dirname
             result_classes[cls.FRIENDLY_NAME] = cls
             break
 
-parser = argparse.ArgumentParser(description="An interactive script to whittle down false-positive trufflehog findings")
+parser = argparse.ArgumentParser(description="An interactive script to whittle down large datasets")
 parser.add_argument('--config', help='the module to use to parse the specified tool output files.', type=str, nargs=1,
                                 choices=list(result_classes.keys()), default=None)
 parser.add_argument('--file', help='the tool output file to be parsed', type=str, nargs=1, default='')
