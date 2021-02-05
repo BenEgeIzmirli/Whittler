@@ -31,7 +31,7 @@ class SampleResult(Result):
     #     },
     #     {
     #         "full name" : "Flubbles Troughslogger",
-    #         "address" : "42 Nilism St, Derridaville KS 80085",
+    #         "address" : "42 Nihilism St, Derridaville KS 80085",
     #         "phone number": "555-867-5309"
     #     }
     # ]
