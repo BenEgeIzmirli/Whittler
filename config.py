@@ -25,6 +25,9 @@ class Config:
     # The maximum printing width of the console, when printing tables and a few other things.
     MAX_OUTPUT_WIDTH = 100
 
+    # Decreasing verbosity will suppress some of the output.
+    VERBOSITY = 3
+
     @classmethod
     def copy(cls, overridden_values={}):
         return type(f"_{cls.__name__}",(cls,),overridden_values)

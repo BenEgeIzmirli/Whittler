@@ -1,5 +1,6 @@
 from classes.Result import RelevanceInterface, Result, ResultDictContainer, RelevanceFilteredResultList, ValueLengthSortedResultDict
 from classes.NestedObjectPointer import NestedObjectPointer, NestedObjectPointerInterface
+from classes.input_utils import wprint
 from config import Config
 from collections import OrderedDict
 import time
@@ -127,16 +128,27 @@ class ResultDatabase(RelevanceInterface):
         for resultdict in result_dict_list:
             cur_time = time.time()
             if cur_time-last_report > 5:
-                print(f"{(int((ct/len(result_dict_list)*100)))}% done ({ct} out of {len(result_dict_list)})")
+                wprint(f"PARSING {fname} : {(int((ct/len(result_dict_list)*100)))}% done ({ct} out of {len(result_dict_list)})")
                 last_report = cur_time
             resultdict["whittler_filename"] = fname
             self.add_result(self.result_class(resultdict))
             ct += 1
 
     def parse_from_directory(self,dirname):
-        for output_file in os.listdir(dirname):
-            print(output_file)
-            self.parse_from_file(dirname+"/"+output_file)
+        files = os.listdir(dirname)
+        last_report = time.time()
+        ct = 0
+        wprint(f"Parsing from {dirname} ...")
+        for output_file in files:
+            cur_time = time.time()
+            if cur_time-last_report > 5:
+                wprint(f"FILES PARSED: {(int((ct/len(files)*100)))}% ({ct} out of {len(files)})")
+                last_report = cur_time
+            try:
+                self.parse_from_file(dirname+"/"+output_file)
+            except PermissionError as e:
+                wprint(f"WARNING: failed to open {dirname+'/'+output_file}: {e}")
+            ct += 1
     
     def parse_from_export(self,fname):
         with open(fname, "r") as f:
@@ -156,7 +168,7 @@ class ResultDatabase(RelevanceInterface):
         for result in results:
             cur_time = time.time()
             if cur_time-last_report > 5:
-                print(f"{(int((ct/len(results)*100)))}% done ({ct} out of {len(results)})")
+                wprint(f"IMPORTING: {(int((ct/len(results)*100)))}% done ({ct} out of {len(results)})")
                 last_report = cur_time
             self.add_result(self.result_class(result))
             ct += 1
