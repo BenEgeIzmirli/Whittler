@@ -216,8 +216,7 @@ def group_interactive(resultdb, groupattr, groupval):
         ptr.get_by_index(groupval)
         return ptr
 
-def get_and_parse_user_input():
-    user_input = winput("Whittler > ")
+def parse_user_input(user_input):
     if not user_input.strip():
         return None
     

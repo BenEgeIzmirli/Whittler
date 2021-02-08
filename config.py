@@ -1,7 +1,7 @@
 
 class Config:
     # The encoding of the files that will be parsed by Whittler.
-    FILE_ENCODING = 'utf-16'
+    FILE_ENCODING = 'utf-8'
 
     # Some tools put ANSI control characters to color their output, which is nice in the console, but pesky
     # when we're trying to do bulk operations with them.

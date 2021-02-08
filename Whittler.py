@@ -11,14 +11,18 @@ import json
 
 
 def main_loop(resultdb):
-    global redirect_file, global_redirect_file
+    global redirect_file, global_redirect_file, cached_commands
     sort_by = None
     while True:
         if not redirect_file is None:
             redirect_file.close()
             redirect_file = None
         resultdb.update_current_view(sort_by=sort_by)
-        user_input = get_and_parse_user_input()
+        if len(cached_commands):
+            user_input = parse_user_input(cached_commands[0])
+            cached_commands = cached_commands[1:]
+        else:
+            user_input = parse_user_input(winput("Whittler > "))
         if user_input is None:
             continue
         verb,args,redirect = user_input
@@ -279,18 +283,40 @@ for fname in filter(lambda s: not s.startswith("_") , os.listdir(os.path.dirname
             break
 
 parser = argparse.ArgumentParser(description="An interactive script to whittle down large datasets")
-parser.add_argument('--config', help='the module to use to parse the specified tool output files.', type=str, nargs=1,
-                                choices=list(result_classes.keys()), default=None)
-parser.add_argument('--file', help='the tool output file to be parsed', type=str, nargs=1, default='')
-parser.add_argument('--dir', help='the directory containing tool output files to be parsed', type=str, nargs=1, default='')
-parser.add_argument('--log_output', help='a file to which all output in this session will be logged (default: a new file in the '+\
+
+# Required args
+bargs = parser.add_argument_group("basic arguments")
+bargs.add_argument('--config', help='the module to use to parse the specified tool output files.', type=str, nargs=1,
+                                choices=list(result_classes.keys()), default=None, required=True)
+
+# Data ingestion args
+diargs = parser.add_argument_group("data ingestion arguments")
+diargs = diargs.add_mutually_exclusive_group(required=True)
+diargs.add_argument('--file', help='the tool output file to be parsed', type=str, nargs=1, default='')
+diargs.add_argument('--dir', help='the directory containing tool output files to be parsed', type=str, nargs=1, default='')
+diargs.add_argument('--import_whittler_output', help='consume and continue working with a file that was outputted by Whittler\'s "export" command',
+                                                 type=str, nargs=1, default=None)
+
+# Output control args
+ocargs = parser.add_argument_group("output control arguments")
+ocargs.add_argument('--log_output', help='a file to which all output in this session will be logged (default: a new file in the '+\
                                          '.whittler folder in your home directory)', type=str, nargs="?", default=None,
                                          const=WHITTLER_DIRECTORY+'/{date:%Y-%m-%d_%H-%M-%S}_log.txt'.format( date=datetime.datetime.now() ))
-parser.add_argument('--log_command_history', help='a file in which to record the command history of this session (default: a new file in the '+\
+ocargs.add_argument('--log_command_history', help='a file in which to record the command history of this session (default: a new file in the '+\
                                                   '.whittler folder in your home directory)', type=str, nargs="?", default=None,
                                                   const=WHITTLER_DIRECTORY+'/{date:%Y-%m-%d_%H-%M-%S}_command_log.txt'.format( date=datetime.datetime.now() ))
-parser.add_argument('--import_whittler_output', help='consume and continue working with a file that was outputted by Whittler\'s "export" command"',
+
+# Scripting arguments
+sargs = parser.add_argument_group("scripting arguments")
+sargs.add_argument('--script', help='run a script specified with a string on the command line, with each command separated by semicolons '+\
+                                     '(backslash-escape for a literal semicolon)',
                                                  type=str, nargs=1, default=None)
+sargs.add_argument('--scriptfile', help='run a script provided in a file, one command per line, in the same format as exported by the '+\
+                                         'log_command_history flag',
+                                                 type=str, nargs=1, default=None)
+
+# to be populated if the --script or --scriptfile flags are specified
+cached_commands = []
 
 if __name__ == "__main__":
     args = parser.parse_args()
@@ -299,7 +325,7 @@ if __name__ == "__main__":
         try:
             set_global_redirect_file(open(logdir,"w+", encoding="utf-8"))
         except PermissionError:
-            print("Lacking permissions to write to the specified all-output log file.")
+            wprint("Lacking permissions to write to the specified all-output log file.")
             sys.exit(1)
         get_global_redirect_file().write(" ".join(sys.argv)+"\n\n")
     if not args.log_command_history is None:
@@ -307,7 +333,7 @@ if __name__ == "__main__":
         try:
             set_command_redirect_file(open(logcmddir,"w+", encoding="utf-8"))
         except PermissionError:
-            print("Lacking permissions to write to the specified command history log file.")
+            wprint("Lacking permissions to write to the specified command history log file.")
             sys.exit(1)
     if args.config is None:
         parser.print_help()
@@ -318,6 +344,21 @@ if __name__ == "__main__":
             parser.print_help()
             sys.exit(1)
         wprint("\nWelcome to the Whittler shell. Type \"help\" for a list of commands.\n")
+        if args.script and args.scriptfile:
+            wprint("Error: the --script and --scriptfile flags cannot both be specified at once.\n")
+            parser.print_help()
+            sys.exit(1)
+        if args.script or args.scriptfile:
+            if args.script:
+                wprint(f"Importing script from command line...")
+                scr = args.script[0].replace("\\;","__WHITTLER_SEMICOLON_ESCAPE_W89UHA938F__")
+                cached_commands = [cmd.strip().replace("__WHITTLER_SEMICOLON_ESCAPE_W89UHA938F__",";") for cmd in scr.split(";")]
+            else:
+                wprint(f"Importing script from file {args.scriptfile[0]} ...")
+                with open(args.scriptfile[0],"r") as f:
+                    scr = f.read()
+                cached_commands = [cmd.strip() for cmd in scr.split("\n")]
+            wprint("Script import success.")
         wprint("Parsing provided files...")
         wprint()
         if args.dir:
