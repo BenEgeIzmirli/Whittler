@@ -224,40 +224,51 @@ def parse_user_input(user_input):
     user_input = user_input.replace("\\'","###_TRUFFLEHOG_SINGLE_QUOTE_###")
     user_input = user_input.replace("\\\"","###_TRUFFLEHOG_DOUBLE_QUOTE_###")
 
-    # For now, just treat single and double quotes identically.
-    user_input = user_input.replace("'","\"")
+    # Support multiple commands in a single line with semicolons, but also ignore escaped semicolons
+    user_input = user_input.replace("\\;","__WHITTLER_SEMICOLON_ESCAPE_W89UHA938F__")
 
-    if user_input.find("\"") == -1:
-        verb,*args = list(filter(None,user_input.split(" ")))
-    else:
-        if user_input.count("\"") % 2:
-            wprint("Failed to parse quoted input.")
-            return None
-        quote_regions = user_input.split("\"")
-        # Obviously we're not going to support nested quotes, so every other quote_region will be
-        # a string contained by quotes. Ideally I should be using the shlex library for this but
-        # I'm too lazy.
-        all_args = []
-        for i in range(len(quote_regions)):
-            if not i%2:
-                all_args.extend(list(filter(None,quote_regions[i].split(" "))))
-            else:
-                all_args.append(quote_regions[i])
-        verb,*args = all_args
-    try:
-        redirect_to_file_index = args.index(">")
-        if redirect_to_file_index != len(args)-2:
-            wprint("Specify only a single file to which to redirect command output! (Maybe try absolute paths; quotes are supported.)")
-            return None
-        redirect = args[-1]
-        args = args[:-2]
-    except ValueError:
-        redirect = None
-    
-    for i in range(len(args)):
-        args[i] = args[i].replace("###_TRUFFLEHOG_SINGLE_QUOTE_###","\\'")
-        args[i] = args[i].replace("###_TRUFFLEHOG_DOUBLE_QUOTE_###","\\\"")
-    return (verb,args,redirect)
+    inputs = [cmd.strip().replace("__WHITTLER_SEMICOLON_ESCAPE_W89UHA938F__",";") for cmd in user_input.split(";")]
+
+    ret = []
+    for inp in inputs:
+        # For now, just treat single and double quotes identically.
+        inp = inp.replace("'","\"")
+
+        if not inp.strip():
+            continue
+
+        if inp.find("\"") == -1:
+            verb,*args = list(filter(None,inp.split(" ")))
+        else:
+            if inp.count("\"") % 2:
+                wprint("Failed to parse quoted input.")
+                return None
+            quote_regions = inp.split("\"")
+            # Obviously we're not going to support nested quotes, so every other quote_region will be
+            # a string contained by quotes. Ideally I should be using the shlex library for this but
+            # I'm too lazy.
+            all_args = []
+            for i in range(len(quote_regions)):
+                if not i%2:
+                    all_args.extend(list(filter(None,quote_regions[i].split(" "))))
+                else:
+                    all_args.append(quote_regions[i])
+            verb,*args = all_args
+        try:
+            redirect_to_file_index = args.index(">")
+            if redirect_to_file_index != len(args)-2:
+                wprint("Specify only a single file to which to redirect command output! (Maybe try absolute paths; quotes are supported.)")
+                return None
+            redirect = args[-1]
+            args = args[:-2]
+        except ValueError:
+            redirect = None
+        
+        for i in range(len(args)):
+            args[i] = args[i].replace("###_TRUFFLEHOG_SINGLE_QUOTE_###","\\'")
+            args[i] = args[i].replace("###_TRUFFLEHOG_DOUBLE_QUOTE_###","\\\"")
+        ret.append((verb,args,redirect))
+    return ret
 
 irrelevance_filters = []
 already_marked_relevant = []
