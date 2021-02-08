@@ -152,7 +152,7 @@ class ResultDatabase(RelevanceInterface):
     
     def parse_from_export(self,fname):
         importing_str = f"IMPORTING {os.path.basename(fname)} ... "
-        wprint(f"{importing_str} ...", end='\r')
+        wprint(f"{importing_str}", end='\r')
         with open(fname, "r") as f:
             results = json.loads(f.read())
         first_result_keys = set(results[0].keys())
