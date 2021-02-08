@@ -176,7 +176,7 @@ class ResultDatabase(RelevanceInterface):
                 last_report = cur_time
             self.add_result(self.result_class(result))
             ct += 1
-        wprint()
+        wprint(f"{importing_str} ... Done."+" "*(Config.MAX_OUTPUT_WIDTH-len(importing_str)-10))
 
 
     #######################################
