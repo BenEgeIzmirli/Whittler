@@ -255,7 +255,7 @@ def main_loop(resultdb):
             resultlist = obj.export()
             try:
                 with open(fname,"w+", encoding="utf-8") as f:
-                    f.write(json.dumps(resultlist, indent=4))
+                    json.dumps(resultlist, f, indent=4)
                 wprint("Export success.")
             except PermissionError:
                 wprint("Failed to open the specified file, maybe try an absolute path? (FYI, quotes are supported.)")
