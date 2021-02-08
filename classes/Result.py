@@ -1,5 +1,5 @@
 from classes.NestedObjectPointer import NestedObjectPointerInterface
-from config import Config
+from tokenize import detect_encoding
 from collections import defaultdict, OrderedDict
 import hashlib
 import re
@@ -88,6 +88,19 @@ class Result(dict, RelevanceInterface):
     # Takes a unicode string, and filters out all 7-bit ANSI escape characters.
     def filter_ansi(self, s):
         return self.ansi_escape.sub('', s)
+    
+    # "Just read the f*cking string from the file already!"
+    @staticmethod
+    def force_read_file_to_string(fname):
+        try:
+            with open(fname, "r",encoding=detect_encoding(fname)) as f:
+                return f.read()
+        except (UnicodeDecodeError,UnicodeError):
+            with open(fname, "rb") as f:
+                b = f.read()
+            b.replace(b"\x00",b"\\x00")
+            b = b"".join([(bytes(bt) if int(bt) < 0x80 else bytes("\\x{:0>2}".format(hex(int(bt))[2:]),'ascii')) for bt in b])
+            return b.decode("ascii")
     
     # This returns an elegant representation of the result. By default, it does not print the "diff"
     # component itself because it is usually very long and clutters up the output.
