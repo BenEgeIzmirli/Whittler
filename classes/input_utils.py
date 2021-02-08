@@ -78,14 +78,14 @@ def get_redirect_file():
 
 class _NoInput:
     pass
-def wprint(s=_NoInput):
+def wprint(s=_NoInput,end="\n"):
     if s is _NoInput:
         s = ""
     if not redirect_file is None:
-        redirect_file.write(str(s)+"\n")
+        redirect_file.write(str(s)+end)
     if not global_redirect_file is None:
-        global_redirect_file.write(str(s)+"\n")
-    print(s)
+        global_redirect_file.write(str(s)+end)
+    print(s,end=end)
 
 def winput(msg):
     user_input = input(msg)
