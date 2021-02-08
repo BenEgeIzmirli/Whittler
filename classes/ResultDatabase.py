@@ -156,7 +156,9 @@ class ResultDatabase(RelevanceInterface):
         first_result_keys = set(results[0].keys())
         for result in results:
             if first_result_keys ^ set(result.keys()): # check symmetric difference, basically ensure that they're equal
-                raise Exception("invalid Whittler export file")
+                raise Exception(f"invalid Whittler export file {fname} ... all results dicts in the JSON must have the same "+\
+                                f"set of keys, but the keys in the result:\n{result}\ndid not match the expected keys:\n"+\
+                                f"{first_result_keys}")
         if not isinstance(self.result_class.ATTRIBUTES, list):
             self.result_class.ATTRIBUTES = []
         attrs = self.result_class.ATTRIBUTES

@@ -303,8 +303,8 @@ diargs.add_argument('--dir',
                     help='the directory containing tool output files to be parsed',
                     type=str, nargs=1, default='')
 diargs.add_argument('--import_whittler_output',
-                    help='consume and continue working with a file that was outputted by Whittler\'s "export" command',
-                    type=str, nargs=1, default=None)
+                    help='consume and continue working with one or more files that were outputted by Whittler\'s "export" command',
+                    type=str, nargs=1, default=None, metavar="FILE_OR_DIRECTORY")
 
 # Output control args
 ocargs = parser.add_argument_group("output control arguments")
@@ -379,7 +379,13 @@ if __name__ == "__main__":
         if args.file:
             resultdb.parse_from_file(args.file[0])
         if args.import_whittler_output:
-            resultdb.parse_from_export(args.import_whittler_output[0])
+            import_target = args.import_whittler_output[0]
+            if os.path.isdir(import_target):
+                import_target = [import_target+"/"+fname for fname in os.listdir(import_target)]
+            else:
+                import_target = [import_target]
+            for fname in import_target:
+                resultdb.parse_from_export(fname)
         wprint("Done.\n")
         main_loop(resultdb)
     except:
