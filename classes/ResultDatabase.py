@@ -151,6 +151,7 @@ class ResultDatabase(RelevanceInterface):
             ct += 1
     
     def parse_from_export(self,fname):
+        wprint(f"IMPORTING {os.path.basename(fname)} ...")
         with open(fname, "r") as f:
             results = json.loads(f.read())
         first_result_keys = set(results[0].keys())
@@ -170,7 +171,7 @@ class ResultDatabase(RelevanceInterface):
         for result in results:
             cur_time = time.time()
             if cur_time-last_report > 5:
-                wprint(f"IMPORTING: {(int((ct/len(results)*100)))}% done ({ct} out of {len(results)})")
+                wprint(f"IMPORTING {os.path.basename(fname)}: {(int((ct/len(results)*100)))}% done ({ct} out of {len(results)})")
                 last_report = cur_time
             self.add_result(self.result_class(result))
             ct += 1
