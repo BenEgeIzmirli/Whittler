@@ -295,29 +295,29 @@ bargs.add_argument('--config',
 
 # Data ingestion args
 diargs = parser.add_argument_group("data ingestion arguments")
-diargs = diargs.add_mutually_exclusive_group(required=True)
+#diargs = diargs.add_mutually_exclusive_group(required=True)
 diargs.add_argument('--file',
                     help='the tool output file to be parsed',
-                    type=str, nargs=1, default='')
+                    type=str, nargs='+', default='')
 diargs.add_argument('--dir',
                     help='the directory containing tool output files to be parsed',
-                    type=str, nargs=1, default='')
+                    type=str, nargs='+', default='')
 diargs.add_argument('--import_whittler_output',
                     help='consume and continue working with one or more files that were outputted by Whittler\'s "export" command',
-                    type=str, nargs=1, default=None, metavar="FILE_OR_DIRECTORY")
+                    type=str, nargs='+', default=None, metavar="FILE_OR_DIR")
 
 # Output control args
 ocargs = parser.add_argument_group("output control arguments")
 ocargs.add_argument('--log_output',
                     help='a file to which all output in this session will be logged (default: a new file in the '+\
                          '.whittler folder in your home directory)',
-                    type=str, nargs="?", default=None, metavar="OUTPUT_FILE",
+                    type=str, nargs="?", default=None, metavar="FILENAME",
                     const=WHITTLER_DIRECTORY+'/{date:%Y-%m-%d_%H-%M-%S}_log.txt'.format( date=datetime.datetime.now() ) )
 ocargs.add_argument('--log_command_history',
                     help='a file in which to record the command history of this session, in a format that can be '+\
                          'imported and re-run by the --scriptfile flag (default: a new file in the .whittler folder in '+\
                          'your home directory)',
-                    type=str, nargs="?", default=None, metavar="OUTPUT_FILE",
+                    type=str, nargs="?", default=None, metavar="FILENAME",
                     const=WHITTLER_DIRECTORY+'/{date:%Y-%m-%d_%H-%M-%S}_command_log.txt'.format( date=datetime.datetime.now() ))
 
 # Scripting arguments
@@ -328,7 +328,7 @@ sargs.add_argument('--script',
                    type=str, nargs=1, default=None, metavar="SCRIPT_STRING")
 sargs.add_argument('--scriptfile',
                    help='run a script provided in a file, with one command per line',
-                   type=str, nargs=1, default=None, metavar="SCRIPTFILE")
+                   type=str, nargs=1, default=None, metavar="SCRIPT_FILE")
 
 
 # to be populated if the --script or --scriptfile flags are specified
