@@ -164,7 +164,7 @@ class Result(dict, RelevanceInterface):
     def all_result_objects(self):
         return [self]
 
-    def show_view(self, pointer_to_me=None, ct=0, limit=None, show_irrelevant=False, sort_by=None):
+    def show_view(self, pointer_to_me=None, ct=0, limit=None, show_irrelevant=False, sort_by=None, sort_numeric=False, sort_reverse=False):
         return (self.pretty_repr(), pointer_to_me)
     
     def export(self):
@@ -238,7 +238,11 @@ class RelevanceFilteredResultList(list, RelevanceInterface):
     def all_result_objects(self):
         return [result for result in self]
 
-    def show_view(self, pointer_to_me=None, ct=0, limit=None, show_irrelevant=False, sort_by=None):
+    _numeric_tokenize = re.compile(r'(\d+)|(\D+)').findall
+    def _numeric_sortkey(self,str):
+        return tuple(int(num) if num else alpha for num,alpha in self._numeric_tokenize(str))
+
+    def show_view(self, pointer_to_me=None, ct=0, limit=None, show_irrelevant=False, sort_by=None, sort_numeric=False, sort_reverse=False):
         ret = OrderedDict()
         s = ""
         def adds(string, prefix=""):
@@ -246,7 +250,12 @@ class RelevanceFilteredResultList(list, RelevanceInterface):
             s += prefix + string + "\n"
         child_ptrdict = self.give_child_pointers(pointer_to_me)
         if not sort_by is None:
-            child_ptrdict = OrderedDict(reversed(sorted(child_ptrdict.items(), key=lambda tup: self[tup[0]][sort_by])))
+            # "reversed" actually yields the expected (i.e. non-reversed-seeming) result...
+            reverse = lambda iter: lambda iter: reversed(iter) if sort_reverse else iter
+            if sort_numeric:
+                child_ptrdict = OrderedDict(reverse(sorted(child_ptrdict.items(), key=lambda tup: self._numeric_sortkey(self[tup[0]][sort_by]))))
+            else:
+                child_ptrdict = OrderedDict(reverse(sorted(child_ptrdict.items(), key=lambda tup: self[tup[0]][sort_by])))
         for key, ptr in child_ptrdict.items():
             result = self[key]
             if not show_irrelevant and not result.relevant:
@@ -323,8 +332,12 @@ class ValueLengthSortedResultDict(defaultdict, RelevanceInterface):
         for resultcontainer in self.values():
             ret.extend(resultcontainer.all_result_objects())
         return ret
+    
+    _numeric_tokenize = re.compile(r'(\d+)|(\D+)').findall
+    def _numeric_sortkey(self,str):
+        return tuple(int(num) if num else alpha for num,alpha in self._numeric_tokenize(str))
 
-    def show_view(self, pointer_to_me=None, ct=0, limit=None, show_irrelevant=False, sort_by=None):
+    def show_view(self, pointer_to_me=None, ct=0, limit=None, show_irrelevant=False, sort_by=None, sort_numeric=False, sort_reverse=False):
         max_width = self.Config.MAX_OUTPUT_WIDTH
         ret = OrderedDict()
         
@@ -334,12 +347,17 @@ class ValueLengthSortedResultDict(defaultdict, RelevanceInterface):
             value = self[key]
             sanitized_key = key.strip().replace("\n","\\n").replace("\r","\\r") # todo: sanitize more thoroughly
             child_repr_values[key] = (ct,value.real_length(),len(value),sanitized_key)
+        # "reversed" actually yields the expected (i.e. non-reversed-seeming) result...
+        reverse = lambda iter: reversed(iter) if sort_reverse else iter
         if sort_by == "total":
-            ordered_keys = dict(reversed(sorted(child_repr_values.items(), key=lambda tup: tup[1][1]))).keys()
+            ordered_keys = dict(reverse(sorted(child_repr_values.items(), key=lambda tup: tup[1][1]))).keys()
         elif sort_by == "relevant":
-            ordered_keys = dict(reversed(sorted(child_repr_values.items(), key=lambda tup: tup[1][2]))).keys()
+            ordered_keys = dict(reverse(sorted(child_repr_values.items(), key=lambda tup: tup[1][2]))).keys()
         elif sort_by == "attribute value":
-            ordered_keys = dict(sorted(child_repr_values.items(), key=lambda tup: tup[1][3])).keys()
+            if sort_numeric:
+                ordered_keys = dict(reverse(sorted(child_repr_values.items(), key=lambda tup: self._numeric_sortkey(tup[1][3])))).keys()
+            else:
+                ordered_keys = dict(reverse(sorted(child_repr_values.items(), key=lambda tup: tup[1][3]))).keys()
         else:
             ordered_keys = child_repr_values.keys()
         

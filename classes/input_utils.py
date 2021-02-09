@@ -23,8 +23,8 @@ actions = {
         "irrelevant [[id]]" : "Mark all elements in the current context, or those referenced by [id], as irrelevant results",
         "relevant [[id]]" : "Mark all elements in the current context, or those referenced by [id], as relevant results",
         "group [id] [[attr]]" : "Using data science, group all results in the database by similarity to the attribute referenced "+\
-                       "by [id]. Or, if [id] points to a specific result, group by similarity to a specific attribute of "+\
-                       "the result referenced by [id].",
+                                "by [id]. Or, if [id] points to a specific result, group by similarity to a specific attribute of "+\
+                                "the result referenced by [id].",
         "game [[id]]" : "Play a game where individual results are presented one-by-one, and the user is asked whether "+\
                         "the result is relevant or not and why. Using this information, other similar results are also "+\
                         "eliminated in bulk. If [id] is specified, then the results presented are limited to the result "+\
@@ -36,9 +36,16 @@ actions = {
         "unquiet [[attr]]" : "Undo the suppression from an earlier quiet command",
         "solo [[attr]]" : "Print only a single attribute's value when printing out raw result data",
         "SOLO [[attr]]" : "Print ONLY a single attribute's value when printing out raw result data, with no context IDs or "+\
-                 "attribute value names",
+                          "attribute value names",
         "unsolo" : "Disable solo mode. Note that this retains any attributes suppressed using the \"quiet\" command.",
-        "sort [colname]" : "Sorts the displayed results by column name. Use quotes if the column name has a space in it.",
+        "sort [colname]" : "Sorts the displayed results by the value in the specified column. Use quotes if the column name "+\
+                           "has a space in it.",
+        "sortn [colname]" : "Sorts the displayed results numerically by the value in the specified column. Use quotes if the "+\
+                            "column name has a space in it.",
+        "rsort [colname]" : "Reverse-sorts the displayed results by the value in the specified column. Use quotes if the column name "+\
+                            "has a space in it.",
+        "rsortn [colname]" : "Reverse-sorts the displayed results numerically by the value in the specified column. Use quotes if the "+\
+                             "column name has a space in it.",
         "history" : "Print all commands that have been run in this session so far",
         "export [fname] [[id]]" : "Export all relevant results in JSON form at into the file [fname]. Optionally, limit "+\
                                   "the output to the result set as referenced by [id]."

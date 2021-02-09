@@ -68,7 +68,7 @@ class NestedObjectPointerInterface(ConfigurableInterface):
     def all_result_objects(self):
         raise NotImplementedError()
     
-    def show_view(self, pointer_to_me=None, ct=0, limit=None, show_irrelevant=False, sort_by=None):
+    def show_view(self, pointer_to_me=None, ct=0, limit=None, show_irrelevant=False, sort_by=None, sort_numeric=False, sort_reverse=False):
         raise NotImplementedError()
 
     def export(self):

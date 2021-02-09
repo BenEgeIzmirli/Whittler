@@ -13,11 +13,13 @@ import json
 def main_loop(resultdb):
     global redirect_file, global_redirect_file, cached_commands
     sort_by = None
+    sort_numeric = False
+    sort_reverse = False
     while True:
         if not redirect_file is None:
             redirect_file.close()
             redirect_file = None
-        resultdb.update_current_view(sort_by=sort_by)
+        resultdb.update_current_view(sort_by=sort_by, sort_numeric=sort_numeric, sort_reverse=sort_reverse)
         if len(cached_commands):
             user_input = cached_commands[0]
             cached_commands = cached_commands[1:]
@@ -50,12 +52,12 @@ def main_loop(resultdb):
         elif verb == "show":
             limit = get_int_from_args(args)
             limit = limit if limit else None # get_int_from_args returns False if no value was supplied for the arg
-            wprint(resultdb.construct_view(limit=limit, sort_by=sort_by)[0])
+            wprint(resultdb.construct_view(limit=limit, sort_by=sort_by, sort_numeric=sort_numeric, sort_reverse=sort_reverse)[0])
             continue
         elif verb == "showall":
             limit = get_int_from_args(args)
             limit = limit if limit else None # get_int_from_args returns False if no value was supplied for the arg
-            wprint(resultdb.construct_view(limit=limit, show_irrelevant=True, sort_by=sort_by)[0])
+            wprint(resultdb.construct_view(limit=limit, show_irrelevant=True, sort_by=sort_by, sort_numeric=sort_numeric, sort_reverse=sort_reverse)[0])
             continue
         elif verb == "dig":
             ptr = get_ptr_from_id_arg(resultdb, args)
@@ -65,6 +67,8 @@ def main_loop(resultdb):
             if ptr is None:
                 continue
             sort_by = None
+            sort_numeric = False
+            sort_reverse = False
             resultdb.navigate_view(ptr)
             continue
         elif verb == "up":
@@ -72,6 +76,8 @@ def main_loop(resultdb):
                 wprint("Already at root context.\n")
                 continue
             sort_by = None
+            sort_numeric = False
+            sort_reverse = False
             resultdb.current_pointer.go_up_level()
             # We want to pop out from the categorized_results or grouped_results contexts implicitly.
             if len(resultdb.current_pointer.path) == 1:
@@ -81,6 +87,8 @@ def main_loop(resultdb):
             while not resultdb.current_pointer.is_base_pointer():
                 resultdb.current_pointer.go_up_level()
             sort_by = None
+            sort_numeric = False
+            sort_reverse = False
             continue
         elif verb == "dump":
             limit = get_int_from_args(args)
@@ -233,6 +241,29 @@ def main_loop(resultdb):
             if not len(args):
                 wprint("Need a column name or attribute value to sort by.")
             sort_by = args[0]
+            sort_numeric = False
+            sort_reverse = False
+            continue
+        elif verb == "sortn":
+            if not len(args):
+                wprint("Need a column name or attribute value to sort by.")
+            sort_by = args[0]
+            sort_numeric = True
+            sort_reverse = False
+            continue
+        elif verb == "rsort":
+            if not len(args):
+                wprint("Need a column name or attribute value to sort by.")
+            sort_by = args[0]
+            sort_numeric = False
+            sort_reverse = True
+            continue
+        elif verb == "rsortn":
+            if not len(args):
+                wprint("Need a column name or attribute value to sort by.")
+            sort_by = args[0]
+            sort_numeric = True
+            sort_reverse = True
             continue
         elif verb == "history":
             wprint()

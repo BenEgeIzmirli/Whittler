@@ -6,10 +6,11 @@ class PlainTextResult(Result):
     FRIENDLY_NAME = "plaintext"
     
     ATTRIBUTES = [
-       "line"
+       "line",
+       "line length"
     ]
 
     @staticmethod
     def give_result_dict_list(fname):
         with open(fname,"r", encoding=PlainTextResult.Config.FILE_ENCODING) as f:
-            return [{"line":line} for line in f.readlines()]
+            return [{"line":line,"line length":len(line)} for line in f.readlines()]
