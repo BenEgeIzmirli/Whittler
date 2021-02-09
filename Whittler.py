@@ -265,9 +265,6 @@ def main_loop(resultdb):
             except Exception as e:
                 wprint(f"Exception encountered while exporting: {e}")
 
-
-
-        
         else:
             wprint("Unrecognized command.\n")
             continue

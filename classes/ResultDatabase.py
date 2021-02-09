@@ -169,14 +169,18 @@ class ResultDatabase(RelevanceInterface):
                 attrs.append(key)
         last_report = time.time()
         ct = 0
+        biggest_status_str_len = 0
         for result in results:
             cur_time = time.time()
             if cur_time-last_report > 5:
-                wprint(f"{importing_str}{(int((ct/len(results)*100)))}% done ({ct} out of {len(results)})", end='\r')
+                status_str = f"{importing_str}{(int((ct/len(results)*100)))}% done ({ct} out of {len(results)})"
+                if len(status_str) > biggest_status_str_len:
+                    biggest_status_str_len = len(status_str)
+                wprint(status_str, end='\r')
                 last_report = cur_time
             self.add_result(self.result_class(result))
             ct += 1
-        wprint(f"{importing_str}Done."+" "*(Config.MAX_OUTPUT_WIDTH-len(importing_str)-5))
+        wprint(f"{importing_str}Done."+" "*max(biggest_status_str_len,Config.MAX_OUTPUT_WIDTH-len(importing_str)-5))
 
 
     #######################################
