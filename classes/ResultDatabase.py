@@ -7,6 +7,8 @@ import time
 import os
 import json
 import numpy as np
+import pickle
+
 try:
     from pyxdameraulevenshtein import normalized_damerau_levenshtein_distance_ndarray
 except ImportError:
@@ -153,8 +155,18 @@ class ResultDatabase(RelevanceInterface):
     def parse_from_export(self,fname):
         importing_str = f"IMPORTING {os.path.basename(fname)} ... "
         wprint(f"{importing_str}", end='\r')
-        with open(fname, "r") as f:
-            results = json.loads(f.read())
+        try:
+            try:
+                with open(fname, "rb") as f:
+                    results = pickle.load(f)
+            except pickle.UnpicklingError:
+                try:
+                    with open(fname, "r") as f:
+                        results = json.loads(f.read())
+                except json.decoder.JSONDecodeError:
+                    raise Exception("Failed to import file as either binary (pickle) or JSON data.")
+        except:
+            raise
         first_result_keys = set(results[0].keys())
         for result in results:
             if first_result_keys ^ set(result.keys()): # check symmetric difference, basically ensure that they're equal

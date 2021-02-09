@@ -8,6 +8,7 @@ import datetime
 import argparse
 from pathlib import Path
 import json
+import pickle
 
 
 def main_loop(resultdb):
@@ -281,7 +282,7 @@ def main_loop(resultdb):
                 continue
             Config.MAX_OUTPUT_WIDTH = new_width
             continue
-        elif verb == "export":
+        elif verb == "exportjson":
             if not len(args):
                 wprint("Need a filename to export to.")
                 continue
@@ -296,10 +297,47 @@ def main_loop(resultdb):
                     obj = ptr.give_pointed_object()
                 resultlist = obj.export()
                 try:
-                    with open(fname,"w+", encoding="utf-8") as f:
+                    if os.path.isfile(fname):
+                        answer = winput("WARNING: file already exists. Override? (N/y) ").strip().lower()
+                        if not (answer == "y" or answer == "yes"):
+                            wprint("Aborting export, no files written.")
+                            continue
+                        wprint("Overwriting file...")
+                    with open(fname,"w", encoding="utf-8") as f:
                         for chunk in json.JSONEncoder().iterencode(resultlist):
                             f.write(chunk)
-                    wprint("Export success.")
+                    wprint(f"Export success, JSON output written to {fname}.")
+                except PermissionError:
+                    wprint("Failed to open the specified file, maybe try an absolute path? (FYI, quotes are supported.)")
+                continue
+            except Exception as e:
+                wprint(f"Exception encountered while exporting: {e}")
+        elif verb == "export":
+            if not len(args):
+                wprint("Need a filename to export to.")
+                continue
+            try:
+                fname = args[0]
+                ptr = get_ptr_from_id_arg(resultdb, args, id_arg_position=1)
+                if ptr is False:
+                    # no specific object (result, or row, etc) was specified - export everything
+                    obj = resultdb
+                elif ptr is None:
+                    wprint("Couldn't find the specified result, no action taken.")
+                    continue
+                else:
+                    obj = ptr.give_pointed_object()
+                resultlist = obj.export()
+                try:
+                    if os.path.isfile(fname):
+                        answer = winput("WARNING: file already exists. Override? (N/y) ").strip().lower()
+                        if not (answer == "y" or answer == "yes"):
+                            wprint("Aborting export, no files written.")
+                            continue
+                        wprint("Overwriting file...")
+                    with open(fname,"wb") as f:
+                        pickle.dump(resultlist, f)
+                    wprint(f"Export success, serialized output written to {fname}.")
                 except PermissionError:
                     wprint("Failed to open the specified file, maybe try an absolute path? (FYI, quotes are supported.)")
                 continue

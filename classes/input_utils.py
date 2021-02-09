@@ -48,8 +48,10 @@ actions = {
                              "column name has a space in it.",
         "history" : "Print all commands that have been run in this session so far",
         "width [numchars]" : "Modify the maxiumum terminal width, in characters, that all output will be formatted to",
-        "export [fname] [[id]]" : "Export all relevant results in JSON form at into the file [fname]. Optionally, limit "+\
-                                  "the output to the result set as referenced by [id]."
+        "exportjson [fname] [[id]]" : "Export all relevant results in JSON form at into the file [fname]. Optionally, limit "+\
+                                      "the output to the result set as referenced by [id].",
+        "export [fname] [[id]]" : "Export all relevant results in Python Pickle (serialized binary) form at into the file [fname]. "+\
+                                  "Optionally, limit the output to the result set as referenced by [id]."
     }
 }
 
