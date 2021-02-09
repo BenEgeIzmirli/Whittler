@@ -244,22 +244,26 @@ def main_loop(resultdb):
             if not len(args):
                 wprint("Need a filename to export to.")
                 continue
-            fname = args[0]
-            ptr = get_ptr_from_id_arg(resultdb, args, id_arg_position=1)
-            if ptr is False:
-                obj = resultdb
-            elif ptr is None:
-                continue
-            else:
-                obj = ptr.give_pointed_object()
-            resultlist = obj.export()
             try:
-                with open(fname,"w+", encoding="utf-8") as f:
-                    json.dumps(resultlist, f, indent=4)
-                wprint("Export success.")
-            except PermissionError:
-                wprint("Failed to open the specified file, maybe try an absolute path? (FYI, quotes are supported.)")
-            continue
+                fname = args[0]
+                ptr = get_ptr_from_id_arg(resultdb, args, id_arg_position=1)
+                if ptr is False:
+                    obj = resultdb
+                elif ptr is None:
+                    continue
+                else:
+                    obj = ptr.give_pointed_object()
+                resultlist = obj.export()
+                try:
+                    with open(fname,"w+", encoding="utf-8") as f:
+                        for chunk in json.JSONEncoder().iterencode(resultlist):
+                            f.write(chunk)
+                    wprint("Export success.")
+                except PermissionError:
+                    wprint("Failed to open the specified file, maybe try an absolute path? (FYI, quotes are supported.)")
+                continue
+            except Exception as e:
+                wprint(f"Exception encountered while exporting: {e}")
 
 
 
