@@ -90,28 +90,33 @@ data model interaction:
 |                             irrelevant (case-insensitive)
 
 output:
-|   quiet [[attr]]         :  Suppress an attribute from being displayed when printing out raw
-|                             result data
-|   unquiet [[attr]]       :  Undo the suppression from an earlier quiet command
-|   solo [[attr]]          :  Print only a single attribute's value when printing out raw result
-|                             data
-|   SOLO [[attr]]          :  Print ONLY a single attribute's value when printing out raw result
-|                             data, with no context IDs or attribute value names
-|   unsolo                 :  Disable solo mode. Note that this retains any attributes suppressed
-|                             using the "quiet" command.
-|   sort [colname]         :  Sorts the displayed results by the value in the specified column. Use
-|                             quotes if the column name has a space in it.
-|   sortn [colname]        :  Sorts the displayed results numerically by the value in the specified
-|                             column. Use quotes if the column name has a space in it.
-|   rsort [colname]        :  Reverse-sorts the displayed results by the value in the specified
-|                             column. Use quotes if the column name has a space in it.
-|   rsortn [colname]       :  Reverse-sorts the displayed results numerically by the value in the
-|                             specified column. Use quotes if the column name has a space in it.
-|   history                :  Print all commands that have been run in this session so far
-|   width [numchars]       :  Modify the maxiumum terminal width, in characters, that all output
-|                             will be formatted to
-|   export [fname] [[id]]  :  Export all relevant results in JSON form at into the file [fname].
-|                             Optionally, limit the output to the result set as referenced by [id].
+|   quiet [[attr]]             :  Suppress an attribute from being displayed when printing out raw
+|                                 result data
+|   unquiet [[attr]]           :  Undo the suppression from an earlier quiet command
+|   solo [[attr]]              :  Print only a single attribute's value when printing out raw result
+|                                 data
+|   SOLO [[attr]]              :  Print ONLY a single attribute's value when printing out raw result
+|                                 data, with no context IDs or attribute value names
+|   unsolo                     :  Disable solo mode. Note that this retains any attributes
+|                                 suppressed using the "quiet" command.
+|   sort [colname]             :  Sorts the displayed results by the value in the specified column.
+|                                 Use quotes if the column name has a space in it.
+|   sortn [colname]            :  Sorts the displayed results numerically by the value in the
+|                                 specified column. Use quotes if the column name has a space in it.
+|   rsort [colname]            :  Reverse-sorts the displayed results by the value in the specified
+|                                 column. Use quotes if the column name has a space in it.
+|   rsortn [colname]           :  Reverse-sorts the displayed results numerically by the value in
+|                                 the specified column. Use quotes if the column name has a space in
+|                                 it.
+|   history                    :  Print all commands that have been run in this session so far
+|   width [numchars]           :  Modify the maxiumum terminal width, in characters, that all output
+|                                 will be formatted to
+|   exportjson [fname] [[id]]  :  Export all relevant results in JSON form at into the file [fname].
+|                                 Optionally, limit the output to the result set as referenced by
+|                                 [id].
+|   export [fname] [[id]]      :  Export all relevant results in Python Pickle (serialized binary)
+|                                 form at into the file [fname]. Optionally, limit the output to the
+|                                 result set as referenced by [id].
 
 NOTE: This shell supports quoted arguments and redirecting command output to a file using the ">" operator.
 
