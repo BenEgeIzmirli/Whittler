@@ -47,6 +47,7 @@ actions = {
         "rsortn [colname]" : "Reverse-sorts the displayed results numerically by the value in the specified column. Use quotes if the "+\
                              "column name has a space in it.",
         "history" : "Print all commands that have been run in this session so far",
+        "width [numchars]" : "Modify the maxiumum terminal width, in characters, that all output will be formatted to",
         "export [fname] [[id]]" : "Export all relevant results in JSON form at into the file [fname]. Optionally, limit "+\
                                   "the output to the result set as referenced by [id]."
     }

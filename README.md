@@ -10,31 +10,44 @@ Whittler was designed to deal with the output of security tools that return thou
 
 ```
 (base) PS C:\Users\v-bei\Desktop\Whittler> python.exe .\Whittler.py --help
-usage: Whittler.py [-h] [--config {bandit,pssa_csv,sarif,trufflehog}] [--file FILE]
-                   [--dir DIR] [--log_output [LOG_OUTPUT]]
-                   [--log_command_history [LOG_COMMAND_HISTORY]]
-                   [--import_whittler_output IMPORT_WHITTLER_OUTPUT]
+usage: Whittler.py [-h] --config {bandit,pssa_csv,sarif,trufflehog}
+                   [--file FILE [FILE ...]] [--dir DIR [DIR ...]]
+                   [--import_whittler_output FILE_OR_DIR [FILE_OR_DIR ...]] [--log_output [FILENAME]]
+                   [--log_command_history [FILENAME]] [--script SCRIPT_STRING] [--scriptfile SCRIPT_FILE]
 
-An interactive script to whittle down false-positive trufflehog findings
+An interactive script to whittle down large datasets
 
 optional arguments:
   -h, --help            show this help message and exit
+
+basic arguments:
   --config {bandit,pssa_csv,sarif,trufflehog}
                         the module to use to parse the specified tool output files.
-  --file FILE           the tool output file to be parsed
-  --dir DIR             the directory containing tool output files to be parsed
-  --log_output [LOG_OUTPUT]
-                        a file to which all output in this session will be logged
-                        (default: a new file in the .whittler folder in your home
-                        directory)
-  --log_command_history [LOG_COMMAND_HISTORY]
-                        a file in which to record the command history of this session
-                        (default: a new file in the .whittler folder in your home
-                        directory)
-  --import_whittler_output IMPORT_WHITTLER_OUTPUT
-                        consume and continue working with a file that was outputted by
-                        Whittler's "export" command"
-(base) PS C:\Scripts\Whittler> python .\Whittler.py --config trufflehog --file "C:\trufflehog_output.json" --log_command_history "C:\whittler_commands.txt" --log_output "C:\whittler_output.txt"
+
+data ingestion arguments:
+  --file FILE [FILE ...]
+                        the tool output file to be parsed
+  --dir DIR [DIR ...]   the directory containing tool output files to be parsed
+  --import_whittler_output FILE_OR_DIR [FILE_OR_DIR ...]
+                        consume and continue working with one or more files that were outputted by Whittler's
+                        "export" command
+
+output control arguments:
+  --log_output [FILENAME]
+                        a file to which all output in this session will be logged (default: a new file in the
+                        .whittler folder in your home directory)
+  --log_command_history [FILENAME]
+                        a file in which to record the command history of this session, in a format that can
+                        be imported and re-run by the --scriptfile flag (default: a new file in the .whittler
+                        folder in your home directory)
+
+scripting arguments:
+  --script SCRIPT_STRING
+                        run a script specified with a string on the command line, with each command separated
+                        by semicolons (backslash-escape for a literal semicolon)
+  --scriptfile SCRIPT_FILE
+                        run a script provided in a file, with one command per line
+(base) PS C:\Scripts\Whittler> python .\Whittler.py --config trufflehog --file "C:\trufflehog_output.json" --log_command_history --log_output
 
 Welcome to the Whittler shell. Type "help" for a list of commands.
 
@@ -86,9 +99,17 @@ output:
 |                             data, with no context IDs or attribute value names
 |   unsolo                 :  Disable solo mode. Note that this retains any attributes suppressed
 |                             using the "quiet" command.
-|   sort [colname]         :  Sorts the displayed results by column name. Use quotes if the column
-|                             name has a space in it.
+|   sort [colname]         :  Sorts the displayed results by the value in the specified column. Use
+|                             quotes if the column name has a space in it.
+|   sortn [colname]        :  Sorts the displayed results numerically by the value in the specified
+|                             column. Use quotes if the column name has a space in it.
+|   rsort [colname]        :  Reverse-sorts the displayed results by the value in the specified
+|                             column. Use quotes if the column name has a space in it.
+|   rsortn [colname]       :  Reverse-sorts the displayed results numerically by the value in the
+|                             specified column. Use quotes if the column name has a space in it.
 |   history                :  Print all commands that have been run in this session so far
+|   width [numchars]       :  Modify the maxiumum terminal width, in characters, that all output
+|                             will be formatted to
 |   export [fname] [[id]]  :  Export all relevant results in JSON form at into the file [fname].
 |                             Optionally, limit the output to the result set as referenced by [id].
 

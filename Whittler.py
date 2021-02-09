@@ -271,6 +271,16 @@ def main_loop(resultdb):
                 wprint(cmd)
             wprint()
             continue
+        elif verb == "width":
+            if not len(args):
+                wprint("Need a column name or attribute value to sort by.")
+            try:
+                new_width = int(args[0])
+            except:
+                wprint(f"Failed to parse {args[0]} as an integer.")
+                continue
+            Config.MAX_OUTPUT_WIDTH = new_width
+            continue
         elif verb == "export":
             if not len(args):
                 wprint("Need a filename to export to.")
