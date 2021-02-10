@@ -185,6 +185,7 @@ class ResultDatabase(RelevanceInterface):
                 if key not in attrs:
                     attrs.append(key)
         last_report = time.time()
+        start = last_report
         ct = 0
         biggest_status_str_len = 0
         for result in results:
@@ -200,7 +201,9 @@ class ResultDatabase(RelevanceInterface):
             else:
                 self.add_result(self.result_class(result), do_lookup=False)
             ct += 1
-        wprint(f"{importing_str}Done."+" "*max(biggest_status_str_len,Config.MAX_OUTPUT_WIDTH-len(importing_str)-5))
+        tot_time = "{:.2f}".format(start - time.time())
+        done_str = f"{importing_str}Done (took {tot_time}s)"
+        wprint(done_str+" "*max(biggest_status_str_len,Config.MAX_OUTPUT_WIDTH-len(done_str)))
 
 
     #######################################
