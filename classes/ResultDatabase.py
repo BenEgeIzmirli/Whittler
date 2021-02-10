@@ -37,10 +37,11 @@ class ResultDatabase(RelevanceInterface):
         assert nestedobjectpointer.base_object is self
         return nestedobjectpointer.give_pointed_object()
 
-    def add_result(self, result):
+    def add_result(self, result, do_lookup=True):
         assert isinstance(result,self.result_class)
-        if result in self.results:
-            return
+        if do_lookup:
+            if result in self.results:
+                return
         result._frozen = True
         self.results.append(result)
         for attr in self.result_class.ATTRIBUTES:
@@ -195,9 +196,9 @@ class ResultDatabase(RelevanceInterface):
                 wprint(status_str, end='\r')
                 last_report = cur_time
             if pickle_import:
-                self.add_result(result)
+                self.add_result(result, do_lookup=False)
             else:
-                self.add_result(self.result_class(result))
+                self.add_result(self.result_class(result), do_lookup=False)
             ct += 1
         wprint(f"{importing_str}Done."+" "*max(biggest_status_str_len,Config.MAX_OUTPUT_WIDTH-len(importing_str)-5))
 
