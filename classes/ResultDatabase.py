@@ -201,7 +201,7 @@ class ResultDatabase(RelevanceInterface):
             else:
                 self.add_result(self.result_class(result), do_lookup=False)
             ct += 1
-        tot_time = "{:.2f}".format(start - time.time())
+        tot_time = "{:.2f}".format(time.time()-start)
         done_str = f"{importing_str}Done (took {tot_time}s)"
         wprint(done_str+" "*max(biggest_status_str_len,Config.MAX_OUTPUT_WIDTH-len(done_str)))
 
