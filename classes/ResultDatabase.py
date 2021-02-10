@@ -32,6 +32,8 @@ class ResultDatabase(RelevanceInterface):
         self.root_pointer = NestedObjectPointer(self)
         self.current_pointer = self.root_pointer.copy()
         self.context_pointers = OrderedDict()
+        self._construct_view_cache = None
+        self._construct_view_cache_pointer = None
     
     def __getitem__(self, nestedobjectpointer):
         assert nestedobjectpointer.base_object is self
@@ -53,11 +55,16 @@ class ResultDatabase(RelevanceInterface):
     #
 
     def construct_view(self, pointer=None, limit=None, show_irrelevant=False, sort_by=None, sort_numeric=False, sort_reverse=False):
-        if pointer == None:
+        if pointer is None:
             pointer = self.current_pointer
+        if not self._construct_view_cache_pointer is None:
+            if self._construct_view_cache_pointer == pointer:
+                return self._construct_view_cache
         obj = pointer.give_pointed_object()
         viewstr, ptrdict = obj.show_view(pointer_to_me=pointer, limit=limit, show_irrelevant=show_irrelevant, sort_by=sort_by, sort_numeric=sort_numeric, sort_reverse=sort_reverse)
-        return (viewstr, ptrdict)
+        self._construct_view_cache_pointer = pointer.copy()
+        self._construct_view_cache = (viewstr, ptrdict)
+        return self._construct_view_cache
     
     def update_current_view(self, limit=None, sort_by=None, sort_numeric=False, sort_reverse=False):
         viewstr, ptrcontext = self.construct_view(self.current_pointer, limit=limit, sort_by=sort_by, sort_numeric=sort_numeric, sort_reverse=sort_reverse)

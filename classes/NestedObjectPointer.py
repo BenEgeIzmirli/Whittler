@@ -37,6 +37,16 @@ class NestedObjectPointer:
         self.flush_object_cache()
         return self.path.pop()
     
+    def __eq__(self,other):
+        if self.base_object is not other.base_object:
+            return False
+        if len(self.path) != len(other.path):
+            return False
+        for i in range(len(self.path)):
+            if self.path[i] != other.path[i]:
+                return False
+        return True
+    
     def __repr__(self):
         return " -> ".join(["base"]+[str(vertex.value) for vertex in self.path])
     
