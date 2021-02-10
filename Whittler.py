@@ -24,8 +24,11 @@ def main_loop(resultdb):
         if len(cached_commands):
             user_input = cached_commands[0]
             cached_commands = cached_commands[1:]
+            wprint(f"Whittler > {' '.join([user_input[0]]+user_input[1])}")
         else:
             user_input = parse_user_input(winput("Whittler > "))
+            if user_input is None:
+                continue
             if len(user_input) > 1:
                 cached_commands = user_input[1:]
             user_input = user_input[0]
@@ -327,7 +330,7 @@ def main_loop(resultdb):
                     continue
                 else:
                     obj = ptr.give_pointed_object()
-                resultlist = obj.export()
+                resultlist = obj.all_result_objects()
                 try:
                     if os.path.isfile(fname):
                         answer = winput("WARNING: file already exists. Override? (N/y) ").strip().lower()

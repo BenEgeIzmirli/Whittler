@@ -38,7 +38,7 @@ class NestedObjectPointer:
         return self.path.pop()
     
     def __repr__(self):
-        return " -> ".join(["base"]+[vertex.value for vertex in self.path])
+        return " -> ".join(["base"]+[str(vertex.value) for vertex in self.path])
     
     def copy(self):
         ret = type(self)(self.base_object)

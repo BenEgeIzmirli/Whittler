@@ -35,7 +35,9 @@ class Result(dict, RelevanceInterface):
     SOLO_ATTRIBUTE = None
     SUPER_SOLO_ATTRIBUTE = None
 
-    def __init__(self,resultdict):
+    _init_run = False
+
+    def __init__(self,resultdict=None):
         self.original_resultdict = resultdict
         self._cached_hash = 0
         self._cached_hash_valid = True
@@ -46,22 +48,30 @@ class Result(dict, RelevanceInterface):
 
         if "whittler_filename" not in self.ATTRIBUTES:
             self.ATTRIBUTES.insert(0,"whittler_filename")
-        for k,v in resultdict.items():
-            self[k] = v
-    
+        if not resultdict is None:
+            for k,v in resultdict.items():
+                self[k] = v
+        self._init_run = True
+
     def __setitem__(self, key, value):
-        if key not in self.ATTRIBUTES:
-            raise Exception(f"Unrecognized key {key} in this result.")
         if type(value) != str:
             value = str(value)
             #raise Exception(f"To support hashing and sorting logic, only unicode strings are allowed as values (got {type(value)}).")
+        
+        # This check is just for pickling/unpickling objects... the pickle implementation first calls __setitem__ with each of the
+        # key/value pairs in this dict subclass, then sets the variable values above - this causes AttributeErrors to pop up because
+        # self.ATTRIBUTES, self._frozen, etc have not been initialized yet.
+        if not self._init_run:
+            self.__init__()
+        if key not in self.ATTRIBUTES:
+            raise Exception(f"Unrecognized key {key} in this result.")
         if self._frozen:
             raise Exception("Cannot modify this result after it has been added to the database!")
         if self.Config.REMOVE_ANSI_CONTROL_CHARACTERS:
             value = self.filter_ansi(value)
         self._cached_hash_valid = False
         super().__setitem__(key,value)
-    
+
     def __hash__(self):
         if self._cached_hash_valid:
             return self._cached_hash

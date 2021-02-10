@@ -155,10 +155,12 @@ class ResultDatabase(RelevanceInterface):
     def parse_from_export(self,fname):
         importing_str = f"IMPORTING {os.path.basename(fname)} ... "
         wprint(f"{importing_str}", end='\r')
+        pickle_import = False
         try:
             try:
                 with open(fname, "rb") as f:
                     results = pickle.load(f)
+                pickle_import = True
             except pickle.UnpicklingError:
                 try:
                     with open(fname, "r") as f:
@@ -167,18 +169,20 @@ class ResultDatabase(RelevanceInterface):
                     raise Exception("Failed to import file as either binary (pickle) or JSON data.")
         except:
             raise
-        first_result_keys = set(results[0].keys())
-        for result in results:
-            if first_result_keys ^ set(result.keys()): # check symmetric difference, basically ensure that they're equal
-                raise Exception(f"invalid Whittler export file {fname} ... all results dicts in the JSON must have the same "+\
-                                f"set of keys, but the keys in the result:\n{result}\ndid not match the expected keys:\n"+\
-                                f"{first_result_keys}")
-        if not isinstance(self.result_class.ATTRIBUTES, list):
-            self.result_class.ATTRIBUTES = []
-        attrs = self.result_class.ATTRIBUTES
-        for key in results[0].keys(): # don't use first_result_keys because the json is ordered whereas sets are not
-            if key not in attrs:
-                attrs.append(key)
+        # If we're importing from JSON, we need to make sure that the data keys are compatible with the specified module
+        if not pickle_import:
+            first_result_keys = set(results[0].keys())
+            for result in results:
+                if first_result_keys ^ set(result.keys()): # check symmetric difference, basically ensure that they're equal
+                    raise Exception(f"invalid Whittler export file {fname} ... all results dicts in the JSON must have the same "+\
+                                    f"set of keys, but the keys in the result:\n{result}\ndid not match the expected keys:\n"+\
+                                    f"{first_result_keys}")
+            if not isinstance(self.result_class.ATTRIBUTES, list):
+                self.result_class.ATTRIBUTES = []
+            attrs = self.result_class.ATTRIBUTES
+            for key in results[0].keys(): # don't use first_result_keys because the json is ordered whereas sets are not
+                if key not in attrs:
+                    attrs.append(key)
         last_report = time.time()
         ct = 0
         biggest_status_str_len = 0
@@ -190,7 +194,10 @@ class ResultDatabase(RelevanceInterface):
                     biggest_status_str_len = len(status_str)
                 wprint(status_str, end='\r')
                 last_report = cur_time
-            self.add_result(self.result_class(result))
+            if pickle_import:
+                self.add_result(result)
+            else:
+                self.add_result(self.result_class(result))
             ct += 1
         wprint(f"{importing_str}Done."+" "*max(biggest_status_str_len,Config.MAX_OUTPUT_WIDTH-len(importing_str)-5))
 

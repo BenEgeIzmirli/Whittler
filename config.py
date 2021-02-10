@@ -5,7 +5,7 @@ class Config:
 
     # Some tools put ANSI control characters to color their output, which is nice in the console, but pesky
     # when we're trying to do bulk operations with them.
-    REMOVE_ANSI_CONTROL_CHARACTERS = True
+    REMOVE_ANSI_CONTROL_CHARACTERS = False
 
     # Grouping is performed by combining the similarity ratings from the Damerau-Levenshtein algorithm and the
     # Ratcliff-Obershelp algorithm using a Sum-Of-Squares method, except instead of precisely squaring/sqrting,

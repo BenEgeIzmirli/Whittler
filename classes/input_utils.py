@@ -138,7 +138,12 @@ def get_int_from_args(args, position=0):
     return argval
 
 # False means no value was supplied for this arg position, None means failed to find corresponding context pointer
-def get_ptr_from_id_arg(resultdb, args, id_arg_position=0):
+def get_ptr_from_id_arg(resultdb, args, id_arg_position=0, quiet=False):
+    if not isinstance(resultdb.context_pointers, dict):
+        if not quiet:
+            wprint(f"Can't dig deeper.")
+        return None
+    
     choice = get_int_from_args(args, position=id_arg_position)
     
     # No value was supplied for this arg position
@@ -153,18 +158,20 @@ def get_ptr_from_id_arg(resultdb, args, id_arg_position=0):
             # get_by_index operation called on this pointer.
             if ptr.path[-1].value == choice:
                 return ptr
-        wprint(f"Could not recognize \"{choice}\" as one of the attributes of this dataset.\n")
+        if not quiet:
+            wprint(f"Could not recognize \"{choice}\" as one of the attributes of this dataset.\n")
         return None
     
     # The value supplied was an int, so should be looked up in the context_pointers dict
-    if choice not in resultdb.context_pointers:
-        wprint(f"Could not recognize {choice} as one of the IDs listed above.\n")
+    elif choice not in resultdb.context_pointers:
+        if not quiet:
+            wprint(f"Could not recognize {choice} as one of the IDs listed above.\n")
         return None
     return resultdb.context_pointers[choice]
 
 # False means no value was supplied for this arg position, None means failed to find corresponding context pointer
 def get_attrname_from_attribute_arg(resultdb, args, attr_arg_position=0):
-    ptr = get_ptr_from_id_arg(resultdb, args, id_arg_position=attr_arg_position)
+    ptr = get_ptr_from_id_arg(resultdb, args, id_arg_position=attr_arg_position, quiet=True)
     if ptr is False:
         return False
     attrname = args[attr_arg_position]
