@@ -40,11 +40,16 @@ class ResultDatabase(RelevanceInterface):
         assert nestedobjectpointer.base_object is self
         return nestedobjectpointer.give_pointed_object()
 
-    def add_result(self, result, do_lookup=True):
+    def add_result(self, result, lookup_set=None):
         assert isinstance(result,self.result_class)
-        if do_lookup:
+        if lookup_set is None:
             if result in self.results:
                 return
+        else:
+            result_hash = hash(result)
+            if result_hash in lookup_set:
+                return
+            lookup_set.add(result_hash)
         result._frozen = True
         self.results.append(result)
         for attr in self.result_class.ATTRIBUTES:
@@ -133,36 +138,55 @@ class ResultDatabase(RelevanceInterface):
     #  Input file parsing functions
     #
 
-    def parse_from_file(self,fname):
+    def parse_from_file(self,fname,hash_cache=set()):
         result_dict_list = self.result_class.give_result_dict_list(fname)
         last_report = time.time()
+        start = last_report
         ct = 0
+        parsing_str = f"PARSING {fname} : "
+        longest_str_length = 0
         for resultdict in result_dict_list:
             cur_time = time.time()
             if cur_time-last_report > 5:
-                wprint(f"PARSING {fname} : {(int((ct/len(result_dict_list)*100)))}% done ({ct} out of {len(result_dict_list)})")
+                print_str = f"{parsing_str}{(int((ct/len(result_dict_list)*100)))}% done ({ct} out of {len(result_dict_list)})\r"
+                if len(print_str)>longest_str_length:
+                    longest_str_length = len(print_str)
+                wprint(print_str)
                 last_report = cur_time
             resultdict["whittler_filename"] = fname
-            self.add_result(self.result_class(resultdict))
+            self.add_result(self.result_class(resultdict), lookup_set=hash_cache)
             ct += 1
+        if longest_str_length:
+            timing = "{:.2f}".format(time.time()-start)
+            final_report = f"{parsing_str}Done (took {timing}s)"
+            wprint(final_report + " "*(len(final_report)-max(Config.MAX_OUTPUT_WIDTH,longest_str_length)))
 
-    def parse_from_directory(self,dirname):
+    def parse_from_directory(self,dirname,hash_cache=set()):
         files = os.listdir(dirname)
         last_report = time.time()
+        start = last_report
         ct = 0
+        parsing_str = f"FILES PARSED: "
+        longest_str_length = 0
         wprint(f"Parsing from {dirname} ...")
         for output_file in files:
             cur_time = time.time()
             if cur_time-last_report > 5:
-                wprint(f"FILES PARSED: {(int((ct/len(files)*100)))}% ({ct} out of {len(files)})")
+                print_str = f"{parsing_str}{(int((ct/len(files)*100)))}% ({ct} out of {len(files)})\r"
+                if len(print_str)>longest_str_length:
+                    longest_str_length = len(print_str)
+                wprint(print_str)
                 last_report = cur_time
             try:
-                self.parse_from_file(dirname+"/"+output_file)
+                self.parse_from_file(dirname+"/"+output_file, hash_cache=hash_cache)
             except PermissionError as e:
                 wprint(f"WARNING: failed to open {dirname+'/'+output_file}: {e}")
             ct += 1
+        timing = "{:.2f}".format(time.time()-start)
+        final_report = f"Parsing from {dirname} done (took {timing}s)"
+        wprint(final_report + " "*(len(final_report)-max(Config.MAX_OUTPUT_WIDTH,longest_str_length)))
     
-    def parse_from_export(self,fname):
+    def parse_from_export(self,fname,hash_cache=set()):
         importing_str = f"IMPORTING {os.path.basename(fname)} ... "
         wprint(f"{importing_str}", end='\r')
         pickle_import = False
@@ -206,9 +230,9 @@ class ResultDatabase(RelevanceInterface):
                 wprint(status_str, end='\r')
                 last_report = cur_time
             if pickle_import:
-                self.add_result(result, do_lookup=False)
+                self.add_result(result, lookup_set=hash_cache)
             else:
-                self.add_result(self.result_class(result), do_lookup=False)
+                self.add_result(self.result_class(result), lookup_set=hash_cache)
             ct += 1
         tot_time = "{:.2f}".format(time.time()-start)
         done_str = f"{importing_str}Done (took {tot_time}s)"

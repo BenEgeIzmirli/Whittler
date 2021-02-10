@@ -455,24 +455,27 @@ if __name__ == "__main__":
                 wprint(f"Importing script from file {args.scriptfile[0]} .")
                 with open(args.scriptfile[0],"r") as f:
                     cached_commands = parse_user_input(" ; ".join(f.readlines()))
+        hash_cache = set()
         if args.dir:
+            wprint("Parsing files from provided directories...")
+            wprint()
+            for d in args.dir:
+                resultdb.parse_from_directory(d, hash_cache=hash_cache)
+        if args.file:
             wprint("Parsing provided files...")
             wprint()
-            resultdb.parse_from_directory(args.dir[0])
-        if args.file:
-            wprint("Parsing provided file...")
-            wprint()
-            resultdb.parse_from_file(args.file[0])
+            for fname in args.file:
+                resultdb.parse_from_file(fname, hash_cache=hash_cache)
         if args.import_whittler_output:
             wprint("Importing provided files...")
             wprint()
-            import_target = args.import_whittler_output[0]
-            if os.path.isdir(import_target):
-                import_target = [import_target+"/"+fname for fname in os.listdir(import_target)]
-            else:
-                import_target = [import_target]
-            for fname in import_target:
-                resultdb.parse_from_export(fname)
+            for import_target in args.import_whittler_output:
+                if os.path.isdir(import_target):
+                    import_target = [import_target+"/"+fname for fname in os.listdir(import_target)]
+                else:
+                    import_target = [import_target]
+                for fname in import_target:
+                    resultdb.parse_from_export(fname, hash_cache=hash_cache)
         wprint("Done.\n")
         main_loop(resultdb)
     except:

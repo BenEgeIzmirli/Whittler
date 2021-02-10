@@ -38,6 +38,8 @@ class NestedObjectPointer:
         return self.path.pop()
     
     def __eq__(self,other):
+        if not isinstance(other, self.__class__):
+            return False
         if self.base_object is not other.base_object:
             return False
         if len(self.path) != len(other.path):
