@@ -188,6 +188,8 @@ class ResultDatabase(RelevanceInterface):
     
     def parse_from_export(self,fname,hash_cache=set()):
         importing_str = f"IMPORTING {os.path.basename(fname)} ... "
+        last_report = time.time()
+        start = last_report
         wprint(f"{importing_str}", end='\r')
         pickle_import = False
         try:
@@ -217,8 +219,6 @@ class ResultDatabase(RelevanceInterface):
             for key in results[0].keys(): # don't use first_result_keys because the json is ordered whereas sets are not
                 if key not in attrs:
                     attrs.append(key)
-        last_report = time.time()
-        start = last_report
         ct = 0
         biggest_status_str_len = 0
         for result in results:
