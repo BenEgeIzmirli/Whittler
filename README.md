@@ -33,7 +33,7 @@ The first usage syntax is the most elegant, but may not work if you have multipl
 ## Sample Usage
 
 ```
-(base) PS C:\Users\bei\Desktop\Whittler> Whittler --help
+(base) PS C:\Scripts\Whittler> Whittler --help
 usage: Whittler.py [-h] --config {bandit,pssa_csv,sarif,trufflehog}
                    [--file FILE [FILE ...]] [--dir DIR [DIR ...]]
                    [--import_whittler_output FILE_OR_DIR [FILE_OR_DIR ...]] [--log_output [FILENAME]]
