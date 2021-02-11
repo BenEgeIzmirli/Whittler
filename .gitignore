@@ -1,8 +1,8 @@
 # just miscellany
 staticanalysis-IOT-runs/
-modules/ripsaw.py
-modules/stackpep.py
-modules/plaintext_files_adt_fuzzing.py
+Whittler/modules/ripsaw.py
+Whittler/modules/stackpep.py
+Whittler/modules/plaintext_files_adt_fuzzing.py
 *__pycache__/
 
 # Byte-compiled / optimized / DLL files

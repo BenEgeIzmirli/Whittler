@@ -1,5 +1,5 @@
-from classes.Result import Result
-# from config import Config
+from Whittler.classes.Result import Result
+# from Whittler.config import Config
 
 class SampleResult(Result):
 

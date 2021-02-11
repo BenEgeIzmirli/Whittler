@@ -1,11 +1,17 @@
 import os
 import sys
-WHITTLER_DIRNAME = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(WHITTLER_DIRNAME)
 
-from classes.ResultDatabase import ResultDatabase
-from classes.Result import Result, RelevanceFilteredResultList
-from classes.input_utils import *
+WHITTLER_DIRNAME = os.path.dirname(os.path.realpath(__file__))
+# print(os.path.dirname(WHITTLER_DIRNAME))
+sys.path.append(os.path.dirname(WHITTLER_DIRNAME))
+try:
+    sys.path.remove(WHITTLER_DIRNAME)
+except ValueError: # Already removed
+    pass
+
+from Whittler.classes.ResultDatabase import ResultDatabase
+from Whittler.classes.Result import Result, RelevanceFilteredResultList
+from Whittler.classes.input_utils import *
 import importlib
 import datetime
 import argparse
@@ -366,7 +372,7 @@ if not os.path.isdir(WHITTLER_DIRECTORY):
 
 result_classes = {}
 for fname in filter(lambda s: not s.startswith("_") , os.listdir(WHITTLER_DIRNAME+"/modules")):
-    module = importlib.import_module(f"modules.{fname[:fname.index('.')]}")
+    module = importlib.import_module(f"Whittler.modules.{fname[:fname.index('.')]}")
     for clsname in dir(module):
         if clsname.startswith("__"):
             continue
@@ -380,7 +386,15 @@ for fname in filter(lambda s: not s.startswith("_") , os.listdir(WHITTLER_DIRNAM
 cached_commands = []
 
 def main():
+    # This is a patch for running the script with "python -m Whittler" - without this modification the help messages
+    # think the script is named "__main__.py".
+    old_argv0 = sys.argv[0]
+    sys.argv[0] = old_argv0.replace("__main__","Whittler")
+
     parser = argparse.ArgumentParser(description="An interactive script to whittle down large datasets")
+
+    # Reset the script name back to the old value, just in case.
+    sys.argv[0] = old_argv0
 
     # Required args
     bargs = parser.add_argument_group("basic arguments")
@@ -426,6 +440,7 @@ def main():
                     type=str, nargs=1, default=None, metavar="SCRIPT_FILE")
 
     args = parser.parse_args()
+
     if not args.log_output is None:
         logdir = args.log_output[0] if isinstance(args.log_output,list) else args.log_output
         try:

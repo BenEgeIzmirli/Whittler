@@ -1,5 +1,5 @@
-from classes.NestedObjectPointer import NestedObjectPointer
-from config import Config
+from Whittler.classes.NestedObjectPointer import NestedObjectPointer
+from Whittler.config import Config
 import textwrap
 import random
 

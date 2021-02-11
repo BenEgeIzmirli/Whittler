@@ -1,4 +1,4 @@
-from classes.Result import Result
+from Whittler.classes.Result import Result
 import re
 import json
 

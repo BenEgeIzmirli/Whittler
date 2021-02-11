@@ -5,8 +5,9 @@ with open("README.md", "r") as f:
 
 setuptools.setup(
     name='Whittler',
-    scripts=['Whittler.py'] ,
-    version='1.0.4',
+    scripts=['Whittler/Whittler.py'],
+    packages=setuptools.find_packages(),
+    version='1.0.5',
     license='MIT',
     description="A machine-learning-capable modular shell for reducing large datasets (especially code static analysis tool outputs)",
     author="Ben Ege Izmirli",
@@ -14,7 +15,7 @@ setuptools.setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/BenEgeIzmirli/Whittler",
-    download_url="https://github.com/BenEgeIzmirli/Whittler/archive/1.0.4.tar.gz",
+    download_url="https://github.com/BenEgeIzmirli/Whittler/archive/1.0.5.tar.gz",
     # keywords = [], # TODO
     install_requires = [
         'numpy'

@@ -1,7 +1,7 @@
-from classes.Result import RelevanceInterface, Result, ResultDictContainer, RelevanceFilteredResultList, ValueLengthSortedResultDict
-from classes.NestedObjectPointer import NestedObjectPointer, NestedObjectPointerInterface
-from classes.input_utils import wprint
-from config import Config
+from Whittler.classes.Result import RelevanceInterface, Result, ResultDictContainer, RelevanceFilteredResultList, ValueLengthSortedResultDict
+from Whittler.classes.NestedObjectPointer import NestedObjectPointer, NestedObjectPointerInterface
+from Whittler.classes.input_utils import wprint
+from Whittler.config import Config
 from collections import OrderedDict
 import time
 import os

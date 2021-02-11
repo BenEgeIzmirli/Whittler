@@ -1,5 +1,5 @@
 from collections import namedtuple, OrderedDict
-from config import ConfigurableInterface
+from Whittler.config import ConfigurableInterface
 
 Vertex = namedtuple("Vertex", ["operation","value"])
 

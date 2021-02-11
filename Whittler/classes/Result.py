@@ -1,4 +1,4 @@
-from classes.NestedObjectPointer import NestedObjectPointerInterface
+from Whittler.classes.NestedObjectPointer import NestedObjectPointerInterface
 from tokenize import detect_encoding
 from collections import defaultdict, OrderedDict
 import hashlib
