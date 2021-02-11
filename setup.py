@@ -6,7 +6,7 @@ with open("README.md", "r") as f:
 setuptools.setup(
     name='Whittler',
     scripts=['Whittler.py'] ,
-    version='1.0',
+    version='1.0.0',
     license='MIT',
     description="A machine-learning-capable modular shell for reducing large datasets (especially code static analysis tool outputs)",
     author="Ben Ege Izmirli",
