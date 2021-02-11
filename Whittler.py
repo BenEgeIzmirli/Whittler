@@ -1,9 +1,12 @@
+import os
+import sys
+WHITTLER_DIRNAME = os.path.dirname(os.path.realpath(__file__))
+sys.path.append(WHITTLER_DIRNAME)
+
 from classes.ResultDatabase import ResultDatabase
 from classes.Result import Result, RelevanceFilteredResultList
 from classes.input_utils import *
 import importlib
-import sys
-import os
 import datetime
 import argparse
 from pathlib import Path
@@ -362,7 +365,7 @@ if not os.path.isdir(WHITTLER_DIRECTORY):
     os.mkdir(WHITTLER_DIRECTORY,mode=0o770)
 
 result_classes = {}
-for fname in filter(lambda s: not s.startswith("_") , os.listdir(os.path.dirname(os.path.realpath(__file__))+"/modules")):
+for fname in filter(lambda s: not s.startswith("_") , os.listdir(WHITTLER_DIRNAME+"/modules")):
     module = importlib.import_module(f"modules.{fname[:fname.index('.')]}")
     for clsname in dir(module):
         if clsname.startswith("__"):
