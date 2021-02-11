@@ -8,8 +8,32 @@ Whittler was designed to deal with the output of security tools that return thou
 
 ## Quickstart
 
+Install with:
+
 ```
-(base) PS C:\Users\v-bei\Desktop\Whittler> python.exe .\Whittler.py --help
+> pip install Whittler
+```
+
+Then Whittler can be run with:
+
+```
+> Whittler
+
+OR
+
+> python -m Whittler
+
+OR
+
+> python ./Whittler/Whittler.py
+```
+
+The first usage syntax is the most elegant, but may not work if you have multiple Python interpreters installed. The second two usage syntaxes allow you to explicitly specify your Python interpreter.
+
+## Sample Usage
+
+```
+(base) PS C:\Users\bei\Desktop\Whittler> Whittler --help
 usage: Whittler.py [-h] --config {bandit,pssa_csv,sarif,trufflehog}
                    [--file FILE [FILE ...]] [--dir DIR [DIR ...]]
                    [--import_whittler_output FILE_OR_DIR [FILE_OR_DIR ...]] [--log_output [FILENAME]]
@@ -47,7 +71,7 @@ scripting arguments:
                         by semicolons (backslash-escape for a literal semicolon)
   --scriptfile SCRIPT_FILE
                         run a script provided in a file, with one command per line
-(base) PS C:\Scripts\Whittler> python .\Whittler.py --config trufflehog --file "C:\trufflehog_output.json" --log_command_history --log_output
+(base) PS C:\Scripts\Whittler> Whittler --config trufflehog --file "C:\trufflehog_output.json" --log_command_history --log_output
 
 Welcome to the Whittler shell. Type "help" for a list of commands.
 
@@ -149,8 +173,8 @@ pip install Whittler
 
 ### Running from source
 
-1. Ensure that Python >=3.8 is installed, and double-check in a console window with `python --version` or `python3 --version`
-2. Download or clone this repo, and navigate to the root folder of the repo
+1. Ensure that Python >=3.8 is installed, and double-check in a console window with `python --version`
+2. Download or clone this repo, and navigate to the Whittler subfolder of the repo
 3. `python .\Whittler.py --help`
 
 ## Output
@@ -163,4 +187,4 @@ Whittler features a "game mode" that can be entered using the "game" command. In
 
 ## Making new modules
 
-Whittler can ingest literally any data source. Just copy modules/_sample_module.py to a new file in the modules/ directory and work from there. The sample module has documentation to help you craft your new data ingestion module. (Just make sure that your new module's filename does not start with an underscore - module filenames starting with underscores are ignored.)
+Whittler can ingest any data source. Just copy modules/_sample_module.py to a new file in the modules/ directory and work from there. The sample module has documentation to help you craft your new data ingestion module. (Just make sure that your new module's filename does not start with an underscore - module filenames starting with underscores are ignored.)
