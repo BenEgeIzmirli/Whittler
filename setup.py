@@ -14,8 +14,8 @@ setuptools.setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/BenEgeIzmirli/Whittler",
-    # download_url="https://github.com/BenEgeIzmirli/Whittler",
-    # keywords = [],
+    download_url="https://github.com/BenEgeIzmirli/Whittler/archive/1.0.0.tar.gz",
+    # keywords = [], # TODO
     install_requires = [
         'numpy'
     ],
