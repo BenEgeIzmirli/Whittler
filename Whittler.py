@@ -372,56 +372,56 @@ for fname in filter(lambda s: not s.startswith("_") , os.listdir(os.path.dirname
             result_classes[cls.FRIENDLY_NAME] = cls
             break
 
-parser = argparse.ArgumentParser(description="An interactive script to whittle down large datasets")
-
-# Required args
-bargs = parser.add_argument_group("basic arguments")
-bargs.add_argument('--config',
-                   help='the module to use to parse the specified tool output files.',
-                   type=str, nargs=1, choices=list(result_classes.keys()), default=None, required=True)
-
-# Data ingestion args
-diargs = parser.add_argument_group("data ingestion arguments")
-#diargs = diargs.add_mutually_exclusive_group(required=True)
-diargs.add_argument('--file',
-                    help='the tool output file to be parsed',
-                    type=str, nargs='+', default='')
-diargs.add_argument('--dir',
-                    help='the directory containing tool output files to be parsed',
-                    type=str, nargs='+', default='')
-diargs.add_argument('--import_whittler_output',
-                    help='consume and continue working with one or more files that were outputted by Whittler\'s "export" command',
-                    type=str, nargs='+', default=None, metavar="FILE_OR_DIR")
-
-# Output control args
-ocargs = parser.add_argument_group("output control arguments")
-ocargs.add_argument('--log_output',
-                    help='a file to which all output in this session will be logged (default: a new file in the '+\
-                         '.whittler folder in your home directory)',
-                    type=str, nargs="?", default=None, metavar="FILENAME",
-                    const=WHITTLER_DIRECTORY+'/{date:%Y-%m-%d_%H-%M-%S}_log.txt'.format( date=datetime.datetime.now() ) )
-ocargs.add_argument('--log_command_history',
-                    help='a file in which to record the command history of this session, in a format that can be '+\
-                         'imported and re-run by the --scriptfile flag (default: a new file in the .whittler folder in '+\
-                         'your home directory)',
-                    type=str, nargs="?", default=None, metavar="FILENAME",
-                    const=WHITTLER_DIRECTORY+'/{date:%Y-%m-%d_%H-%M-%S}_command_log.txt'.format( date=datetime.datetime.now() ))
-
-# Scripting arguments
-sargs = parser.add_argument_group("scripting arguments")
-sargs.add_argument('--script',
-                   help='run a script specified with a string on the command line, with each command separated by semicolons '+\
-                        '(backslash-escape for a literal semicolon)',
-                   type=str, nargs=1, default=None, metavar="SCRIPT_STRING")
-sargs.add_argument('--scriptfile',
-                   help='run a script provided in a file, with one command per line',
-                   type=str, nargs=1, default=None, metavar="SCRIPT_FILE")
-
 
 # to be populated if the --script or --scriptfile flags are specified
 cached_commands = []
 
-if __name__ == "__main__":
+def main():
+    parser = argparse.ArgumentParser(description="An interactive script to whittle down large datasets")
+
+    # Required args
+    bargs = parser.add_argument_group("basic arguments")
+    bargs.add_argument('--config',
+                    help='the module to use to parse the specified tool output files.',
+                    type=str, nargs=1, choices=list(result_classes.keys()), default=None, required=True)
+
+    # Data ingestion args
+    diargs = parser.add_argument_group("data ingestion arguments")
+    #diargs = diargs.add_mutually_exclusive_group(required=True)
+    diargs.add_argument('--file',
+                        help='the tool output file to be parsed',
+                        type=str, nargs='+', default='')
+    diargs.add_argument('--dir',
+                        help='the directory containing tool output files to be parsed',
+                        type=str, nargs='+', default='')
+    diargs.add_argument('--import_whittler_output',
+                        help='consume and continue working with one or more files that were outputted by Whittler\'s "export" command',
+                        type=str, nargs='+', default=None, metavar="FILE_OR_DIR")
+
+    # Output control args
+    ocargs = parser.add_argument_group("output control arguments")
+    ocargs.add_argument('--log_output',
+                        help='a file to which all output in this session will be logged (default: a new file in the '+\
+                            '.whittler folder in your home directory)',
+                        type=str, nargs="?", default=None, metavar="FILENAME",
+                        const=WHITTLER_DIRECTORY+'/{date:%Y-%m-%d_%H-%M-%S}_log.txt'.format( date=datetime.datetime.now() ) )
+    ocargs.add_argument('--log_command_history',
+                        help='a file in which to record the command history of this session, in a format that can be '+\
+                            'imported and re-run by the --scriptfile flag (default: a new file in the .whittler folder in '+\
+                            'your home directory)',
+                        type=str, nargs="?", default=None, metavar="FILENAME",
+                        const=WHITTLER_DIRECTORY+'/{date:%Y-%m-%d_%H-%M-%S}_command_log.txt'.format( date=datetime.datetime.now() ))
+
+    # Scripting arguments
+    sargs = parser.add_argument_group("scripting arguments")
+    sargs.add_argument('--script',
+                    help='run a script specified with a string on the command line, with each command separated by semicolons '+\
+                            '(backslash-escape for a literal semicolon)',
+                    type=str, nargs=1, default=None, metavar="SCRIPT_STRING")
+    sargs.add_argument('--scriptfile',
+                    help='run a script provided in a file, with one command per line',
+                    type=str, nargs=1, default=None, metavar="SCRIPT_FILE")
+
     args = parser.parse_args()
     if not args.log_output is None:
         logdir = args.log_output[0] if isinstance(args.log_output,list) else args.log_output
@@ -505,3 +505,5 @@ if __name__ == "__main__":
             print("\nGoodbye.\n")
         
 
+if __name__ == "__main__":
+    main()
