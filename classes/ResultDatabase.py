@@ -10,11 +10,11 @@ import numpy as np
 import pickle
 
 try:
-    from pyxdameraulevenshtein import normalized_damerau_levenshtein_distance_ndarray
+    from pyxdameraulevenshtein import normalized_damerau_levenshtein_distance
 except ImportError:
     print("Warning: pyxDamerauLevenshtein module not detected, fuzzy grouping logic will be impaired.")
     print("         To install it, run 'pip install pyxDamerauLevenshtein'.")
-    normalized_damerau_levenshtein_distance_ndarray = lambda reference, values: np.array([1 for v in values])
+    normalized_damerau_levenshtein_distance = lambda reference, values: np.array([1 for v in values])
 import difflib
 
 
@@ -98,7 +98,7 @@ class ResultDatabase(RelevanceInterface):
         if exp is None:
             exp = Config.SIMILARITY_EXPONENT
 
-        dh_distances = 1-normalized_damerau_levenshtein_distance_ndarray(reference, values)
+        dh_distances = 1-normalized_damerau_levenshtein_distance(reference, values)
         
         sm = difflib.SequenceMatcher()
         sm.set_seq2(reference)

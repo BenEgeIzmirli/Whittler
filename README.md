@@ -125,9 +125,9 @@ Whittler >
 
 ## Prerequisites
 
-This shell has been tested on Python >= 3.6 .
+This shell has been tested on Python >= 3.8 .
 
-Whittler will work fine with only standard libraries. The only nonstandard library used in this project is [pyxDamerauLevenshtein](https://github.com/gfairchild/pyxDamerauLevenshtein), which is used to improve its ability to predict fuzzy groups of results for bulk categorization. It can be installed via the following command:
+Whittler is written with mostly standard libraries, plus numpy. The only (optional) nonstandard library used in this project is [pyxDamerauLevenshtein](https://github.com/gfairchild/pyxDamerauLevenshtein), which is used to improve its ability to predict fuzzy groups of results for bulk categorization. It can be installed via the following command:
 
 ```
 pip install pyxDamerauLevenshtein
@@ -141,14 +141,17 @@ python -m pip install pyxDamerauLevenshtein
 
 ## Installation
 
-This *should* be a foolproof way to get this project working on Windows:
+### Installing with pip
 
-1. [Install Anaconda with Python 3.x](https://www.anaconda.com/products/individual)
-2. Open the Anaconda Command Prompt (search for it in the start menu, start as Administrator to be safe)
-3. Ensure that we're using Python 3: `python --version`
-4. `python -m pip install pyxDamerauLevenshtein` (optional, but helps with data mining functionality)
-5. Navigate to the root directory of this repo (the one with Whittler.py)
-6. `python .\Whittler.py --help`
+```
+pip install Whittler
+```
+
+### Running from source
+
+1. Ensure that Python >=3.8 is installed, and double-check in a console window with `python --version` or `python3 --version`
+2. Download or clone this repo, and navigate to the root folder of the repo
+3. `python .\Whittler.py --help`
 
 ## Output
 
