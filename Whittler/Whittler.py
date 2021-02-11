@@ -18,7 +18,7 @@ import argparse
 from pathlib import Path
 import json
 import pickle
-import zlib
+import gzip
 
 
 def main_loop(resultdb):
@@ -316,10 +316,10 @@ def main_loop(resultdb):
                             wprint("Aborting export, no files written.")
                             continue
                         wprint("Overwriting file...")
-                    with open(fname,"w", encoding="utf-8") as f:
+                    with gzip.GzipFile(fname,"wb") as f:
                         for chunk in json.JSONEncoder().iterencode(resultlist):
-                            f.write(chunk)
-                    wprint(f"Export success, JSON output written to {fname}.")
+                            f.write(chunk.encode('utf-8'))
+                    wprint(f"Export success, compressed JSON output written to {fname}.")
                 except PermissionError:
                     wprint("Failed to open the specified file, maybe try an absolute path? (FYI, quotes are supported.)")
                 continue
@@ -340,8 +340,6 @@ def main_loop(resultdb):
                     continue
                 else:
                     obj = ptr.give_pointed_object()
-                # this gives all result objects, not just the ones marked relevant. We can do this here because the "relevant"
-                # instance variable will be saved along with the pickled objects.
                 resultlist = obj.all_result_objects()
                 try:
                     if os.path.isfile(fname):
@@ -350,10 +348,9 @@ def main_loop(resultdb):
                             wprint("Aborting export, no files written.")
                             continue
                         wprint("Overwriting file...")
-                    #compressobj = zlib.compressobj(wbits=31) # wbits=31 makes the object output a gzip-style header and trailing checksum
-                    with open(fname,"wb") as f:
+                    with gzip.GzipFile(fname,"wb") as f:
                         pickle.dump(resultlist, f)
-                    wprint(f"Export success, serialized output written to {fname}.")
+                    wprint(f"Export success, compressed serialized output written to {fname}.")
                 except PermissionError:
                     wprint("Failed to open the specified file, maybe try an absolute path? (FYI, quotes are supported.)")
                 continue
@@ -386,6 +383,7 @@ for fname in filter(lambda s: not s.startswith("_") , os.listdir(WHITTLER_DIRNAM
 cached_commands = []
 
 def main():
+    global cached_commands
     # This is a patch for running the script with "python -m Whittler" - without this modification the help messages
     # think the script is named "__main__.py".
     old_argv0 = sys.argv[0]

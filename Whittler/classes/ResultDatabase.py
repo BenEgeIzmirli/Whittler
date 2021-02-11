@@ -8,6 +8,7 @@ import os
 import json
 import numpy as np
 import pickle
+import gzip
 
 try:
     from pyxdameraulevenshtein import normalized_damerau_levenshtein_distance
@@ -194,13 +195,13 @@ class ResultDatabase(RelevanceInterface):
         pickle_import = False
         try:
             try:
-                with open(fname, "rb") as f:
+                with gzip.GzipFile(fname, "rb") as f:
                     results = pickle.load(f)
                 pickle_import = True
             except pickle.UnpicklingError:
                 try:
-                    with open(fname, "r") as f:
-                        results = json.loads(f.read())
+                    with gzip.GzipFile(fname, "rb") as f:
+                        results = json.loads(f.read().decode('utf-8'))
                 except json.decoder.JSONDecodeError:
                     raise Exception("Failed to import file as either binary (pickle) or JSON data.")
         except:
