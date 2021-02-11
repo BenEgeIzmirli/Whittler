@@ -9,6 +9,7 @@ import argparse
 from pathlib import Path
 import json
 import pickle
+import zlib
 
 
 def main_loop(resultdb):
@@ -330,6 +331,8 @@ def main_loop(resultdb):
                     continue
                 else:
                     obj = ptr.give_pointed_object()
+                # this gives all result objects, not just the ones marked relevant. We can do this here because the "relevant"
+                # instance variable will be saved along with the pickled objects.
                 resultlist = obj.all_result_objects()
                 try:
                     if os.path.isfile(fname):
@@ -338,6 +341,7 @@ def main_loop(resultdb):
                             wprint("Aborting export, no files written.")
                             continue
                         wprint("Overwriting file...")
+                    #compressobj = zlib.compressobj(wbits=31) # wbits=31 makes the object output a gzip-style header and trailing checksum
                     with open(fname,"wb") as f:
                         pickle.dump(resultlist, f)
                     wprint(f"Export success, serialized output written to {fname}.")

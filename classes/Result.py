@@ -178,7 +178,8 @@ class Result(dict, RelevanceInterface):
         return (self.pretty_repr(), pointer_to_me)
     
     def export(self):
-        return {**self.original_resultdict, "whittler_filename":self["whittler_filename"]}
+        data = {attr:self[attr] for attr in self.ATTRIBUTES}
+        return {**data, "whittler_filename":self["whittler_filename"]}
     
 
 class RelevanceFilteredResultList(list, RelevanceInterface):
