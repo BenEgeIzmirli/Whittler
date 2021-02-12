@@ -1,4 +1,5 @@
 from Whittler.classes.NestedObjectPointer import NestedObjectPointerInterface
+from Whittler.classes.MemoryCompressor import CompressedBytes
 from tokenize import detect_encoding
 from collections import defaultdict, OrderedDict
 import hashlib
@@ -37,7 +38,7 @@ class Result(dict, RelevanceInterface):
 
     _init_run = False
 
-    def __init__(self,resultdict=None):
+    def __init__(self, resultdict=None):
         self.original_resultdict = resultdict
         self._cached_hash = 0
         self._cached_hash_valid = True
@@ -54,9 +55,8 @@ class Result(dict, RelevanceInterface):
         self._init_run = True
 
     def __setitem__(self, key, value):
-        if type(value) != str:
+        if type(value) not in (str, CompressedBytes):
             value = str(value)
-            #raise Exception(f"To support hashing and sorting logic, only unicode strings are allowed as values (got {type(value)}).")
         
         # This check is just for pickling/unpickling objects... the pickle implementation first calls __setitem__ with each of the
         # key/value pairs in this dict subclass, then sets the variable values above - this causes AttributeErrors to pop up because
@@ -69,8 +69,28 @@ class Result(dict, RelevanceInterface):
             raise Exception("Cannot modify this result after it has been added to the database!")
         if self.Config.REMOVE_ANSI_CONTROL_CHARACTERS:
             value = self.filter_ansi(value)
+        if self.Config.MEMORY_COMPRESSION:
+            if self.Config.MemoryCompressor.training_mode:
+                self.Config.MemoryCompressor.train(value, self)
+            else:
+                value = self.Config.MemoryCompressor.compress(value)
         self._cached_hash_valid = False
         super().__setitem__(key,value)
+    
+    def __getitem__(self, key):
+        value = super().__getitem__(key)
+        if type(value) == CompressedBytes:
+            value = self.Config.MemoryCompressor.decompress(value)
+        return value
+    
+    def __reduce__(self):
+        cls = self.__class__
+        args = ()
+        state = self.__dict__.copy()
+        list_iterator = None
+        dict_iterator = iter({key:self.Config.MemoryCompressor.decompress(value) for key,value in dict(self).items()}.items())
+
+        return (cls,args,state,list_iterator,dict_iterator)
 
     def __hash__(self):
         if self._cached_hash_valid:
@@ -78,6 +98,7 @@ class Result(dict, RelevanceInterface):
         new_hashval = 0
         for attr in self.ATTRIBUTES:
             if attr in self:
+                # TODO: faster to hash the compressed values if memory compression enabled, would that break anything?
                 new_hashval = int(hashlib.md5(bytes(str(new_hashval)+attr+self[attr],'utf-8')).hexdigest(),16)
         self._cached_hash = new_hashval
         self._cached_hash_valid = True

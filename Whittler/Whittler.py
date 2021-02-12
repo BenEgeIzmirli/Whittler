@@ -12,6 +12,7 @@ except ValueError: # Already removed
 from Whittler.classes.ResultDatabase import ResultDatabase
 from Whittler.classes.Result import Result, RelevanceFilteredResultList
 from Whittler.classes.input_utils import *
+from Whittler.classes.MemoryCompressor import MemoryCompressor
 import importlib
 import datetime
 import argparse
@@ -412,6 +413,9 @@ def main():
     diargs.add_argument('--import_whittler_output',
                         help='consume and continue working with one or more files that were outputted by Whittler\'s "export" command',
                         type=str, nargs='+', default=None, metavar="FILE_OR_DIR")
+    diargs.add_argument('--memory_compression',
+                        help='enable in-memory compression for working with very large datasets',
+                        action='store_true')
 
     # Output control args
     ocargs = parser.add_argument_group("output control arguments")
@@ -438,6 +442,9 @@ def main():
                     type=str, nargs=1, default=None, metavar="SCRIPT_FILE")
 
     args = parser.parse_args()
+
+    if args.memory_compression:
+        Config.MEMORY_COMPRESSION = True
 
     if not args.log_output is None:
         logdir = args.log_output[0] if isinstance(args.log_output,list) else args.log_output
@@ -496,6 +503,9 @@ def main():
                     import_target = [import_target]
                 for fname in import_target:
                     resultdb.parse_from_export(fname, hash_cache=hash_cache)
+        
+        if Config.MEMORY_COMPRESSION and Config.MemoryCompressor.training_mode:
+            Config.MemoryCompressor.disable_training_mode()
         wprint("Done.\n")
         main_loop(resultdb)
     except:

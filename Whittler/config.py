@@ -1,3 +1,4 @@
+from Whittler.classes.MemoryCompressor import MemoryCompressor
 
 class Config:
     # The encoding of the files that will be parsed by Whittler.
@@ -27,6 +28,26 @@ class Config:
 
     # Decreasing verbosity will suppress some of the output.
     VERBOSITY = 3
+
+    # Enabling transparent in-memory compression can enable working with much larger datasets in memory, at the
+    # cost of some performance.
+    MEMORY_COMPRESSION = False
+
+
+    ##################
+
+    MEMORY_COMPRESSION_TRAIN_COUNT = 1000
+
+    MemoryCompressor = MemoryCompressor()
+
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        if "MemoryCompressor" in state:
+            del state["MemoryCompressor"]
+        return state
+    
+    def __setstate__(self, state):
+        self.__dict__.update(state)
 
     @classmethod
     def copy(cls, overridden_values={}):
