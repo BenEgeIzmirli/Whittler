@@ -1,4 +1,5 @@
-from collections import namedtuple, OrderedDict
+from collections import namedtuple
+from Whittler.classes.Metadata import MetadataInterface
 from Whittler.config import ConfigurableInterface
 
 Vertex = namedtuple("Vertex", ["operation","value"])
@@ -59,7 +60,7 @@ class NestedObjectPointer:
         return ret
 
 
-class NestedObjectPointerInterface(ConfigurableInterface):
+class NestedObjectPointerInterface(ConfigurableInterface, MetadataInterface):
     def __init__(self):
         self._cached_pointers = None
     
@@ -83,7 +84,7 @@ class NestedObjectPointerInterface(ConfigurableInterface):
     def show_view(self, pointer_to_me=None, ct=0, limit=None, show_irrelevant=False, sort_by=None, sort_numeric=False, sort_reverse=False):
         raise NotImplementedError()
 
-    def export(self):
+    def exportjson(self):
         raise NotImplementedError()
 
 

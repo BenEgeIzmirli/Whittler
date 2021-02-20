@@ -1,6 +1,6 @@
-from Whittler.classes.Result import RelevanceInterface, Result, ResultDictContainer, RelevanceFilteredResultList, ValueLengthSortedResultDict
+from Whittler.classes.Result import RelevanceInterface, Result, ResultDictContainer, RelevanceFilteredResultList
 from Whittler.classes.NestedObjectPointer import NestedObjectPointer, NestedObjectPointerInterface
-from Whittler.classes.input_utils import wprint
+from Whittler.classes.input_utils import wprint, winput
 from Whittler.config import Config
 from collections import OrderedDict
 import time
@@ -15,8 +15,11 @@ try:
 except ImportError:
     print("Warning: pyxDamerauLevenshtein module not detected, fuzzy grouping logic will be impaired.")
     print("         To install it, run 'pip install pyxDamerauLevenshtein'.")
-    normalized_damerau_levenshtein_distance = lambda reference, values: np.array([1 for v in values])
+    normalized_damerau_levenshtein_distance = lambda reference, value: 1
 import difflib
+
+# import cProfile, pstats, io
+# from pstats import SortKey
 
 
 class ResultDatabase(RelevanceInterface):
@@ -36,6 +39,8 @@ class ResultDatabase(RelevanceInterface):
         self._construct_view_cache = None
         self._construct_view_cache_pointer = None
         self._construct_view_cache_params = None
+
+        # self.pr = cProfile.Profile()
     
     def __getitem__(self, nestedobjectpointer):
         assert nestedobjectpointer.base_object is self
@@ -44,8 +49,7 @@ class ResultDatabase(RelevanceInterface):
     def add_result(self, result, lookup_set=None):
         assert isinstance(result,self.result_class)
         if lookup_set is None:
-            if result in self.results:
-                return
+            pass
         else:
             result_hash = hash(result)
             if result_hash in lookup_set:
@@ -54,7 +58,8 @@ class ResultDatabase(RelevanceInterface):
         result._frozen = True
         self.results.append(result)
         for attr in self.result_class.ATTRIBUTES:
-            self.categorized_results[attr][result[attr]].append(result)
+            attrval = dict.__getitem__(result, attr) # gets the underlying CompressedBytes object if memory compression enabled
+            self.categorized_results[attr][attrval].append(result)
 
 
     #########################
@@ -90,48 +95,38 @@ class ResultDatabase(RelevanceInterface):
     #######################
     #  Grouping functions
     #
-
-    def group_attribute(self, attrname):
-        raise NotImplementedError()
     
     @staticmethod
     def compute_distances(reference,values,exp=None):
         if exp is None:
             exp = Config.SIMILARITY_EXPONENT
-
-        dh_distances = 1-normalized_damerau_levenshtein_distance(reference, values)
         
         sm = difflib.SequenceMatcher()
         sm.set_seq2(reference)
         sm_distances = []
+        dl_distances = []
         for val in values:
             sm.set_seq1(val)
             sm_distances.append(sm.ratio())
+            dl_distances.append(1-normalized_damerau_levenshtein_distance(reference, val))
         sm_distances = np.array(sm_distances)
-        
-        dh_exp = np.power(dh_distances, exp)
+        dl_distances = np.array(dl_distances)
+        dl_exp = np.power(dl_distances, exp)
         sm_exp = np.power(sm_distances, exp)
-        dist_sum = dh_exp+sm_exp
+        dist_sum = dl_exp+sm_exp
         return np.power(dist_sum,1/exp)
     
-    def find_similar_results(self, attrname, groupval, similarity_threshold=None):
-        if similarity_threshold is None:
-            similarity_threshold = self.Config.SIMILARITY_THRESHOLD
+    def find_similar_results(self, attrname, groupval):
         if not groupval.strip():
-            all_results = [res for res in list.__iter__(self.results) if hasattr(res,attrname) and res[attrname].strip()]
+            all_results = (res[attrname].strip() for res in list.__iter__(self.results) if hasattr(res,attrname) and res[attrname].strip())
         else:
-            all_results = [res for res in list.__iter__(self.results)]
-        attrarray = np.array([res[attrname].strip() for res in all_results])
-        normalized_distances = self.compute_distances(groupval, attrarray)
-        return [res for res,_ in filter(lambda tup:tup[1]>similarity_threshold, zip(all_results, normalized_distances))]
+            all_results = (res[attrname].strip() for res in list.__iter__(self.results))
+        return list(zip(self.results,self.compute_distances(groupval, all_results)))
     
-    def group_attribute_by_value(self, attrname, groupval):
-        similar_results = self.find_similar_results(attrname, groupval)
-        self.register_grouped_results(attrname, groupval, similar_results)
-
     def register_grouped_results(self, attrname, groupval, result_group):
         for result in result_group:
-            self.grouped_results[groupval][result[attrname]].append(result)
+            attrval = dict.__getitem__(result, attrname) # gets the underlying CompressedBytes object if memory compression enabled
+            self.grouped_results[groupval][attrval].append(result)
         self.grouped_results.flush_pointer_cache()
 
 
@@ -139,7 +134,7 @@ class ResultDatabase(RelevanceInterface):
     #  Input file parsing functions
     #
 
-    def parse_from_file(self,fname,hash_cache=set()):
+    def parse_from_file(self,fname,hash_cache=None):
         result_dict_list = self.result_class.give_result_dict_list(fname)
         last_report = time.time()
         start = last_report
@@ -162,7 +157,7 @@ class ResultDatabase(RelevanceInterface):
             final_report = f"{parsing_str}Done (took {timing}s)"
             wprint(final_report + " "*(len(final_report)-max(Config.MAX_OUTPUT_WIDTH,longest_str_length)))
 
-    def parse_from_directory(self,dirname,hash_cache=set()):
+    def parse_from_directory(self,dirname,hash_cache=None):
         files = os.listdir(dirname)
         last_report = time.time()
         start = last_report
@@ -187,12 +182,13 @@ class ResultDatabase(RelevanceInterface):
         final_report = f"Parsing from {dirname} done (took {timing}s)"
         wprint(final_report + " "*(len(final_report)-max(Config.MAX_OUTPUT_WIDTH,longest_str_length)))
     
-    def parse_from_export(self,fname,hash_cache=set()):
+    def parse_from_export(self,fname,hash_cache=None):
         importing_str = f"IMPORTING {os.path.basename(fname)} ... "
         last_report = time.time()
         start = last_report
         wprint(f"{importing_str}", end='\r')
         pickle_import = False
+        # self.pr.enable()
         try:
             try:
                 with gzip.GzipFile(fname, "rb") as f:
@@ -206,6 +202,7 @@ class ResultDatabase(RelevanceInterface):
                     raise Exception("Failed to import file as either binary (pickle) or JSON data.")
         except:
             raise
+        # self.pr.disable()
         # If we're importing from JSON, we need to make sure that the data keys are compatible with the specified module
         if not pickle_import:
             first_result_keys = set(results[0].keys())
@@ -235,6 +232,11 @@ class ResultDatabase(RelevanceInterface):
             else:
                 self.add_result(self.result_class(result), lookup_set=hash_cache)
             ct += 1
+        # s = io.StringIO()
+        # sortby = SortKey.CUMULATIVE
+        # ps = pstats.Stats(self.pr, stream=s).sort_stats(sortby)
+        # ps.print_stats()
+        # print(s.getvalue())
         tot_time = "{:.2f}".format(time.time()-start)
         done_str = f"{importing_str}Done (took {tot_time}s)"
         wprint(done_str+" "*max(biggest_status_str_len,Config.MAX_OUTPUT_WIDTH-len(done_str)))
@@ -245,7 +247,7 @@ class ResultDatabase(RelevanceInterface):
     #
     
     def real_iter_values(self):
-        return self.results.real_iter_values()
+        yield from self.results.real_iter_values()
     
 
     #################################################
@@ -288,6 +290,34 @@ class ResultDatabase(RelevanceInterface):
             ct += len(resultdict)
         return (s, ret)
 
-    def export(self):
-        return self.results.export()
+    def exportjson(self):
+        yield from self.results.exportjson()
     
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

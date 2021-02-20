@@ -1,4 +1,4 @@
-from Whittler.classes.MemoryCompressor import MemoryCompressor
+from Whittler.classes.MemoryCompressor import MemoryCompressorOnlyInstance
 
 class Config:
     # The encoding of the files that will be parsed by Whittler.
@@ -36,9 +36,7 @@ class Config:
 
     ##################
 
-    MEMORY_COMPRESSION_TRAIN_COUNT = 1000
-
-    MemoryCompressor = MemoryCompressor()
+    MemoryCompressor = MemoryCompressorOnlyInstance
 
     def __getstate__(self):
         state = self.__dict__.copy()
@@ -53,5 +51,7 @@ class Config:
     def copy(cls, overridden_values={}):
         return type(f"_{cls.__name__}",(cls,),overridden_values)
 
+ConfigMainInstance = Config()
+
 class ConfigurableInterface:
-    Config = Config
+    Config = ConfigMainInstance

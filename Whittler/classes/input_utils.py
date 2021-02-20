@@ -2,6 +2,7 @@ from Whittler.classes.NestedObjectPointer import NestedObjectPointer
 from Whittler.config import Config
 import textwrap
 import random
+from collections import Counter
 
 
 actions = {
@@ -22,14 +23,20 @@ actions = {
     "data model interaction" : {
         "irrelevant [[id]]" : "Mark all elements in the current context, or those referenced by [id], as irrelevant results",
         "relevant [[id]]" : "Mark all elements in the current context, or those referenced by [id], as relevant results",
-        "group [id] [[attr]]" : "Using data science, group all results in the database by similarity to the attribute referenced "+\
-                                "by [id]. Or, if [id] points to a specific result, group by similarity to a specific attribute of "+\
-                                "the result referenced by [id].",
+        "group [id] [attr]" : "Using data science, group all results in the database by similarity to the attribute [attr] "+\
+                                "of the result referenced by [id].",
+        "filter [str] [attr]" : "Mark all results containing [str] in a particular attribute [attr] as irrelevant "+\
+                                "(case-insensitive)",
+        "invfilter [str] [attr]" : "Mark all results not containing [str] in a particular attribute [attr] as irrelevant "+\
+                                   "(case-insensitive)",
+        "search [str] [attr]" : "Create a new result group with all results that contain [str] in their [attr] "+\
+                                "attribute (case-sensitive)",
+        "invsearch [str] [attr]" : "Create a new result group with all results that do not contain [str] in their [attr] "+\
+                                   "attribute (case-sensitive)",
         "game [[id]]" : "Play a game where individual results are presented one-by-one, and the user is asked whether "+\
                         "the result is relevant or not and why. Using this information, other similar results are also "+\
                         "eliminated in bulk. If [id] is specified, then the results presented are limited to the result "+\
-                        "group represented by the specified [id].",
-        "filter [str] [[attr]]" : "Mark all results containing [str] in a particular attribute as irrelevant (case-insensitive)"
+                        "group represented by the specified [id]."
     },
     "output" : {
         "quiet [[attr]]" : "Suppress an attribute from being displayed when printing out raw result data",
@@ -190,24 +197,38 @@ def select_attribute(resultdb, msg):
         return None
     return attrs[index]
 
-def group_interactive(resultdb, groupattr, groupval):
+def group_interactive(resultdb, groupattr, groupval, max_print_count=10, max_print_chars_per_attrval=1000):
     wprint("Creating a result group set based on this attribute value...")
     SIMILARITY_THRESHOLD = resultdb.Config.SIMILARITY_THRESHOLD
+    wprint("Using similarity threshold {:.2f}...".format(SIMILARITY_THRESHOLD))
+    result_similarities = resultdb.find_similar_results(groupattr, groupval)
     while True:
-        print(SIMILARITY_THRESHOLD)
-        similar_results = resultdb.find_similar_results(groupattr, groupval, similarity_threshold=SIMILARITY_THRESHOLD)
-        wprint()
-        for val in sorted(set([res[groupattr] for res in similar_results])):
-            wprint(f"   {val.strip()}")
-        wprint()
+        similar_results = list(res for res,similarity in result_similarities if similarity>SIMILARITY_THRESHOLD)
+        attrvals_of_similar_results = Counter()
+        for res in similar_results:
+            attrval = dict.__getitem__(res,groupattr)
+            attrvals_of_similar_results[attrval] += 1
+        ordered_attrvals_of_similar_results = attrvals_of_similar_results.most_common()[:max_print_count]
+        for attrval_mcs,count in ordered_attrvals_of_similar_results:
+            attr_printstr = attrval_mcs.value
+            if len(attr_printstr) > max_print_chars_per_attrval:
+                attr_printstr = attr_printstr[:max_print_chars_per_attrval] + " [...]"
+            wprint(f"----- {count} result{'s' if count>1 else ''} with value:\n{attr_printstr}\n")
+        if max_print_count < len(attrvals_of_similar_results):
+            wprint(f"\n... and {sum(attrvals_of_similar_results.values())-sum(count for attrval,count in ordered_attrvals_of_similar_results)} more ...\n")
         wprint(f"I found {len(similar_results)} similar results with \"{groupattr}\" values as shown above.")
-        wprint("I want to create a result group set based on these findings, but I want to make sure it's OK.")
+        wprint("I want to create a result group set based on these findings. Is this grouping...")
+        wprint("   OK? (1)")
+        wprint("   too conservative? (2)")
+        wprint("   too liberal? (3)")
+        wprint("   never mind, abandon group creation (4)")
+        wprint("   not sure, show more results (5)")
         while True:
-            grouping_choice = winput("Is this grouping OK (1), too conservative (2), or too liberal (3)? Or, just abandon the group creation (4)? ")
+            grouping_choice = winput("> ")
             bad_input = False
             try:
                 grouping_choice = int(grouping_choice)
-                if grouping_choice not in [1,2,3,4]:
+                if grouping_choice not in [1,2,3,4,5]:
                     bad_input = True
             except:
                 bad_input = True
@@ -219,15 +240,22 @@ def group_interactive(resultdb, groupattr, groupval):
             pass
         elif grouping_choice == 2:
             SIMILARITY_THRESHOLD -= SIMILARITY_THRESHOLD / Config.SIMILARITY_THRESHOLD_MODIFICATION_FACTOR
+            wprint("Using similarity threshold {:.2f}...".format(SIMILARITY_THRESHOLD))
             continue
         elif grouping_choice == 3:
             SIMILARITY_THRESHOLD += (1 - SIMILARITY_THRESHOLD) / Config.SIMILARITY_THRESHOLD_MODIFICATION_FACTOR
+            wprint("Using similarity threshold {:.2f}...".format(SIMILARITY_THRESHOLD))
             continue
         elif grouping_choice == 4:
             wprint("OK, abandoning group creation.")
             break
+        elif grouping_choice == 5:
+            max_print_count *= 2
+            max_print_chars_per_attrval *= 2
+            continue
         resultdb.register_grouped_results(groupattr, groupval, similar_results)
         wprint("Created result group based on this entry. You can view this group in the \"groups\" pane in the top context.")
+        wprint("(You might have to use the \"showall\" command, since all results in this group are now marked irrelevant.)")
         ptr = NestedObjectPointer(resultdb)
         ptr.access_property("grouped_results")
         ptr.get_by_index(groupval)
@@ -353,8 +381,8 @@ def play_elimination_game(resultdb, obj):
         wprint("I can try to find other results similar to this one through various heuristics, and mark them irrelevant as well.\n")
 
         search_actions = {
-            1 : "contains this specific value",
-            2 : "contains a substring of this value (case-insensitive)",
+            1 : "contains the specific value above",
+            2 : "contains a particular substring (case-insensitive)",
             3 : "loosely resembles this value (fuzzy string matching)",
             4 : "never mind"
         }
@@ -421,7 +449,7 @@ def play_elimination_game(resultdb, obj):
             
             if generate_report:
                 excitement = num_results_eliminated//100
-                report = f"\n > Eliminating {num_results_eliminated} results{'.' if not excitement else ''}{'!'*excitement}\n"
+                report = f"\n > Eliminating {num_results_eliminated} results{'.' if not excitement else '!'*excitement}\n"
                 if excitement >= 3:
                     report = report.upper()
                 wprint(report)

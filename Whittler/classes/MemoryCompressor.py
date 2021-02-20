@@ -1,31 +1,25 @@
 import zlib
+from Whittler.classes.Singleton import Singleton
+
+# TODO: this can all be coded in cpython! That would be a kickass library to have exist!
+# https://docs.python.org/3/c-api/buffer.html#bufferobjects
 
 # based on https://stackoverflow.com/questions/479218/how-to-compress-small-strings
-
-class CompressedBytes(bytes):
-    pass
-
-class SingletonMeta(type):
-    _instances = {}
-    def __call__(cls, *args, **kwargs):
-        if cls not in cls._instances:
-            cls._instances[cls] = super(SingletonMeta, cls).__call__(*args, **kwargs)
-        return cls._instances[cls]
-
-class MemoryCompressor(metaclass=SingletonMeta):
+class MemoryCompressor(Singleton):
     def __init__(self):
         # wbits=-15 gives a raw output stream with no header or checksum, with a 2**15 byte window.
         self.compressor = zlib.compressobj(wbits=-15)
         self.decompressor = zlib.decompressobj(wbits=-15)
         self.junk_offset = 0
 
-        self.trainee_compression_callbacks = set()
+        self.trainee_compression_callbacks = []
         self.training_mode = True
         self.total_train_count = 1000
 
-    def train(self, training_str, training_resultobj):
-        self.trainee_compression_callbacks.add(training_resultobj)
+        self.COMPRESSION_ENABLED = False
 
+    def train(self, training_str):
+        assert self.training_mode
         training_bytes = training_str.encode('utf-8')
         self.junk_offset += len(training_bytes)
 
@@ -36,30 +30,103 @@ class MemoryCompressor(metaclass=SingletonMeta):
         # not flushing wastes space.
         self.junk_offset -= len(self.decompressor.decompress(self.compressor.flush(zlib.Z_SYNC_FLUSH)))
 
-        if len(self.trainee_compression_callbacks) >= self.total_train_count and training_resultobj not in self.trainee_compression_callbacks:
+        # If we have trained on at least self.total_train_count result objects, then disable training_mode.
+        # The second half of the if statement is necessary because we call train() on each call to Result.__setitem__,
+        # not on each creation of a Result object.
+        if len(self.trainee_compression_callbacks) >= self.total_train_count:
             self.disable_training_mode()
-
+            return self.compress(training_str.encode('utf-8'))
+        
         return training_str
+    
+    def add_compression_callback(self, mcd):
+        self.trainee_compression_callbacks.append(mcd)
     
     def disable_training_mode(self):
         self.training_mode = False
-        for resultobj in self.trainee_compression_callbacks:
-            frozenstate = resultobj._frozen
-            resultobj._frozen = False
-            # This will get the raw string value from each attribute, then invoke the memory compression through __setitem__
-            for attr in resultobj.ATTRIBUTES:
-                if attr in resultobj:
-                    rawval = dict.__getitem__(resultobj, attr)
-                    if type(rawval) != CompressedBytes:
-                        resultobj[attr] = rawval
-            resultobj._frozen = frozenstate
+        for mcd in self.trainee_compression_callbacks:
+            assert not mcd.compressed
+            compressed = self.compress(mcd)
+            del mcd[:]
+            mcd.extend(compressed)
+            mcd.compressed = True
 
-    # Takes str, returns CompressedBytes
-    def compress(self,s):
+    # Takes bytearray or bytes, returns bytes
+    def compress(self,b):
         compressor = self.compressor.copy()
-        return CompressedBytes(compressor.compress(s.encode('utf-8'))+compressor.flush())
+        ret = compressor.compress(b)+compressor.flush()
+        return ret
 
-    # Takes CompressedBytes, returns str
+    # Takes bytearray or bytes, returns bytes
     def decompress(self,b):
         decompressor = self.decompressor.copy()
-        return (decompressor.decompress(b)+decompressor.flush())[self.junk_offset:].decode('utf-8')
+        return (decompressor.decompress(b)+decompressor.flush())[self.junk_offset:]
+
+MemoryCompressorOnlyInstance = MemoryCompressor()
+
+
+class MaybeCompressedString(bytearray):
+    
+    def __new__(cls, data_string):
+        if type(data_string) == MaybeCompressedString:
+            return data_string
+        assert type(data_string) == str
+        data_bytes = data_string.encode('utf-8')
+        add_callback = False
+        if MemoryCompressorOnlyInstance.COMPRESSION_ENABLED:
+            if MemoryCompressorOnlyInstance.training_mode:
+                add_callback = True
+                data = MemoryCompressorOnlyInstance.train(data_string)
+                if type(data) is bytes:
+                    compressed = True
+                else:
+                    data = data_bytes
+                    compressed = False
+            else:
+                data = MemoryCompressorOnlyInstance.compress(data_bytes)
+                compressed = True
+        else:
+            data = data_bytes
+            compressed = False
+        ret = bytearray.__new__(cls)
+        ret.extend(data)
+        ret.compressed = compressed
+        if add_callback:
+            MemoryCompressorOnlyInstance.add_compression_callback(ret)
+        return ret
+    
+    def __init__(self, d):
+        pass
+
+    def __reduce__(self):
+        cls = self.__class__
+        args = (self.value,)
+        return (cls,args)
+    
+    @property
+    def value(self):
+        if self.compressed:
+            return MemoryCompressorOnlyInstance.decompress(self).decode('utf-8')
+        return self.decode('utf-8')
+
+    def __hash__(self):
+        return hash(self.value)
+    
+    def __eq__(self, other):
+        return hash(self) == hash(other)
+    
+    # _initted = False
+    # def __init__(self,data_string):
+    #     if not self._initted:
+    #         if MemoryCompressorOnlyInstance.COMPRESSION_ENABLED:
+    #             if MemoryCompressorOnlyInstance.training_mode:
+    #                 _value = MemoryCompressorOnlyInstance.train(data_string, self)
+    #                 self._value = _value
+    #                 self._compressed = type(_value) is bytes
+    #             else:
+    #                 self._value = MemoryCompressorOnlyInstance.compress(data_string)
+    #                 self._compressed = True
+    #         else:
+    #             self._value = data_string
+    #             self._compressed = False
+    #         self._initted = True

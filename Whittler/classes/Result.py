@@ -1,5 +1,5 @@
 from Whittler.classes.NestedObjectPointer import NestedObjectPointerInterface
-from Whittler.classes.MemoryCompressor import CompressedBytes
+from Whittler.classes.MemoryCompressor import MaybeCompressedString
 from tokenize import detect_encoding
 from collections import defaultdict, OrderedDict
 import hashlib
@@ -55,7 +55,7 @@ class Result(dict, RelevanceInterface):
         self._init_run = True
 
     def __setitem__(self, key, value):
-        if type(value) not in (str, CompressedBytes):
+        if not type(value) is str:
             value = str(value)
         
         # This check is just for pickling/unpickling objects... the pickle implementation first calls __setitem__ with each of the
@@ -69,34 +69,26 @@ class Result(dict, RelevanceInterface):
             raise Exception("Cannot modify this result after it has been added to the database!")
         if self.Config.REMOVE_ANSI_CONTROL_CHARACTERS:
             value = self.filter_ansi(value)
-        if self.Config.MEMORY_COMPRESSION:
-            if self.Config.MemoryCompressor.training_mode:
-                self.Config.MemoryCompressor.train(value, self)
-            else:
-                value = self.Config.MemoryCompressor.compress(value)
         self._cached_hash_valid = False
-        super().__setitem__(key,value)
+        dict.__setitem__(self, key, MaybeCompressedString(value))
     
     def __getitem__(self, key):
-        value = super().__getitem__(key)
-        if type(value) == CompressedBytes:
-            value = self.Config.MemoryCompressor.decompress(value)
-        return value
+        return dict.__getitem__(self,key).value
     
-    def __reduce__(self):
-        cls = self.__class__
-        args = ()
-        state = self.__dict__.copy()
-        list_iterator = None
-        dict_iterator = iter({key:self.Config.MemoryCompressor.decompress(value) for key,value in dict(self).items()}.items())
+    # def __reduce__(self):
+    #     cls = self.__class__
+    #     args = ()
+    #     state = self.__dict__.copy()
+    #     list_iterator = None
+    #     dict_iterator = iter({key:self.Config.MemoryCompressor.decompress(value) for key,value in dict(self).items()}.items())
 
-        return (cls,args,state,list_iterator,dict_iterator)
+    #     return (cls,args,state,list_iterator,dict_iterator)
 
     def __hash__(self):
         if self._cached_hash_valid:
             return self._cached_hash
         new_hashval = 0
-        for attr in self.ATTRIBUTES:
+        for attr in sorted(self.ATTRIBUTES):
             if attr in self:
                 # TODO: faster to hash the compressed values if memory compression enabled, would that break anything?
                 new_hashval = int(hashlib.md5(bytes(str(new_hashval)+attr+self[attr],'utf-8')).hexdigest(),16)
@@ -108,6 +100,10 @@ class Result(dict, RelevanceInterface):
         if not isinstance(other, Result):
             return False
         return hash(self) == hash(other)
+    
+    def items(self):
+        for k in dict.keys(self):
+            yield (k,self[k])
     
     @staticmethod
     def give_result_dict_list(fname):
@@ -126,11 +122,12 @@ class Result(dict, RelevanceInterface):
         try:
             with open(fname, "r",encoding=detect_encoding(fname)) as f:
                 return f.read()
-        except (UnicodeDecodeError,UnicodeError):
+        except:
             with open(fname, "rb") as f:
                 b = f.read()
             b.replace(b"\x00",b"\\x00")
-            b = b"".join([(bytes(bt) if int(bt) < 0x80 else bytes("\\x{:0>2}".format(hex(int(bt))[2:]),'ascii')) for bt in b])
+            b = b"".join([( bytes(bt) if (bt < 0x80 and bt != 0x00)
+                            else bytes("\\x{:0>2}".format(hex(bt)[2:]),'ascii')) for bt in b])
             return b.decode("ascii")
     
     # This returns an elegant representation of the result. By default, it does not print the "diff"
@@ -198,11 +195,12 @@ class Result(dict, RelevanceInterface):
     def show_view(self, pointer_to_me=None, ct=0, limit=None, show_irrelevant=False, sort_by=None, sort_numeric=False, sort_reverse=False):
         return (self.pretty_repr(), pointer_to_me)
     
-    def export(self):
-        data = {attr:self[attr] for attr in self.ATTRIBUTES}
-        return {**data, "whittler_filename":self["whittler_filename"]}
-    
+    def exportjson(self):
+        yield {attr:self[attr] for attr in self.ATTRIBUTES}
+        # return {**data, "whittler_filename":self["whittler_filename"]}
 
+
+# todo: split this off into its own file
 class RelevanceFilteredResultList(list, RelevanceInterface):
     def __init__(self,iterable=None):
         list.__init__(self)
@@ -283,7 +281,7 @@ class RelevanceFilteredResultList(list, RelevanceInterface):
         child_ptrdict = self.give_child_pointers(pointer_to_me)
         if not sort_by is None:
             # "reversed" actually yields the expected (i.e. non-reversed-seeming) result...
-            reverse = lambda iter: lambda iter: reversed(iter) if sort_reverse else iter
+            reverse = lambda iter: reversed(iter) if sort_reverse else iter
             if sort_numeric:
                 child_ptrdict = OrderedDict(reverse(sorted(child_ptrdict.items(), key=lambda tup: self._numeric_sortkey(self[tup[0]][sort_by]))))
             else:
@@ -292,7 +290,7 @@ class RelevanceFilteredResultList(list, RelevanceInterface):
             result = self[key]
             if not show_irrelevant and not result.relevant:
                 continue
-            result_id = str(hash(result))[:6]
+            result_id = str(hash(result))[:9]
             if not result.SUPER_SOLO_ATTRIBUTE is None:
                 adds(result.pretty_repr())
             else:
@@ -307,29 +305,36 @@ class RelevanceFilteredResultList(list, RelevanceInterface):
                 break
         return (s, ret)
     
-    def export(self):
-        return [result.export() for result in self]
+    def exportjson(self):
+        for result in self:
+            yield from result.exportjson()
     
 
+# todo: split this off into its own file
 class ValueLengthSortedResultDict(defaultdict, RelevanceInterface):
 
     def __init__(self, *args, **kwargs):
         defaultdict.__init__(self, *args, **kwargs)
         RelevanceInterface.__init__(self)
-        NestedObjectPointerInterface.__init__(self)
     
     def items(self):
-        yield from reversed(sorted(defaultdict.items(self),key=lambda tup:len(tup[1])))
+        for k,v in reversed(sorted(defaultdict.items(self),key=lambda tup:len(tup[1]))):
+            yield (k.value,v)
         
     def keys(self):
         yield from (k for k,v in self.items())
         
     def values(self):
-        yield from (v for k,v in self.items())
+        # don't use items() to avoid overhead of potentially decompressing keys
+        for k,v in reversed(sorted(defaultdict.items(self),key=lambda tup:len(tup[1]))):
+            yield v
     
     def __setitem__(self, key, value):
         assert isinstance(value, RelevanceInterface)
-        defaultdict.__setitem__(self,key,value)
+        defaultdict.__setitem__(self,MaybeCompressedString(key),value)
+    
+    def __getitem__(self, key):
+        return defaultdict.__getitem__(self, MaybeCompressedString(key))
     
     def __len__(self):
         return len([obj for obj in self.values() if obj.relevant])
@@ -349,7 +354,7 @@ class ValueLengthSortedResultDict(defaultdict, RelevanceInterface):
     
     def enumerate_child_pointers(self, pointer_to_me):
         ret = OrderedDict()
-        for k in self.keys():
+        for k,v in reversed(sorted(defaultdict.items(self),key=lambda tup:len(tup[1]))):
             ptr = pointer_to_me.copy()
             ptr.get_by_index(k)
             ret[k] = ptr
@@ -377,8 +382,9 @@ class ValueLengthSortedResultDict(defaultdict, RelevanceInterface):
         child_repr_values = OrderedDict()
         for key, ptr in child_pointers.items():
             value = self[key]
-            sanitized_key = key.strip().replace("\n","\\n").replace("\r","\\r") # todo: sanitize more thoroughly
-            child_repr_values[key] = (ct,value.real_length(),len(value),sanitized_key)
+            key = key.value[:1000] # If memory compression is enabled, some of these values will probably be huge
+            child_repr_values[key] = (ct,value.real_length(),len(value),key,value,ptr)
+        
         # "reversed" actually yields the expected (i.e. non-reversed-seeming) result...
         reverse = lambda iter: reversed(iter) if sort_reverse else iter
         if sort_by == "total":
@@ -395,13 +401,12 @@ class ValueLengthSortedResultDict(defaultdict, RelevanceInterface):
         
         lines = []
         for key in ordered_keys:
-            value = self[key]
-            ptr = child_pointers[key]
-        # for key, ptr in self.give_child_pointers(pointer_to_me).items():
-        #     value = self[key]
+            value = child_repr_values[key][4]
+            ptr = child_repr_values[key][5]
             if not show_irrelevant and not len(value):
                 continue
-            sanitized_key = key.strip().replace("\n","\\n").replace("\r","\\r") # todo: sanitize more thoroughly
+            # convert each value to bytes and remove the "b''" to escape newlines and control chars etc
+            sanitized_key = repr(key.strip().encode('utf-8'))[2:-1]
             line = "| {:4d} | {:5d} | {:8d} | {}".format(ct,value.real_length(),len(value),sanitized_key)
             if len(line) > max_width-2:
                 line = line[:max_width-2-7]+" [...] "
@@ -425,12 +430,10 @@ class ValueLengthSortedResultDict(defaultdict, RelevanceInterface):
         s += header_footer
         return (s, ret)
     
-    def export(self):
-        ret = []
+    def exportjson(self):
         for value in self.values():
             if value.relevant:
-                ret.extend(value.export())
-        return ret
+                yield from value.exportjson()
     
 
 class ResultDict(ValueLengthSortedResultDict):
