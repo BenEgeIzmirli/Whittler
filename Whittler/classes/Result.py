@@ -119,16 +119,12 @@ class Result(dict, RelevanceInterface):
     # "Just read the f*cking string from the file already!"
     @staticmethod
     def force_read_file_to_string(fname):
-        try:
-            with open(fname, "r",encoding=detect_encoding(fname)) as f:
-                return f.read()
-        except:
-            with open(fname, "rb") as f:
-                b = f.read()
-            b.replace(b"\x00",b"\\x00")
-            b = b"".join([( bytes(bt) if (bt < 0x80 and bt != 0x00)
-                            else bytes("\\x{:0>2}".format(hex(bt)[2:]),'ascii')) for bt in b])
-            return b.decode("ascii")
+        with open(fname, "rb") as f:
+            b = f.read()
+        b.replace(b"\x00",b"\\x00")
+        b = b"".join([( bytes(bt) if (bt < 0x80 and bt != 0x00)
+                        else bytes("\\x{:0>2}".format(hex(bt)[2:]),'ascii')) for bt in b])
+        return b.decode("ascii")
     
     # This returns an elegant representation of the result. By default, it does not print the "diff"
     # component itself because it is usually very long and clutters up the output.
@@ -335,6 +331,7 @@ class ValueLengthSortedResultDict(defaultdict, RelevanceInterface):
     
     def __getitem__(self, key):
         return defaultdict.__getitem__(self, MaybeCompressedString(key))
+
     
     def __len__(self):
         return len([obj for obj in self.values() if obj.relevant])

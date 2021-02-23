@@ -64,6 +64,7 @@ class MemoryCompressor(Singleton):
 
 MemoryCompressorOnlyInstance = MemoryCompressor()
 
+_MCS_cache = {}
 
 class MaybeCompressedString(bytearray):
     
@@ -71,6 +72,9 @@ class MaybeCompressedString(bytearray):
         if type(data_string) == MaybeCompressedString:
             return data_string
         assert type(data_string) == str
+        data_string_hash = hash(data_string)
+        if data_string_hash in _MCS_cache:
+            return _MCS_cache[data_string_hash]
         data_bytes = data_string.encode('utf-8')
         add_callback = False
         if MemoryCompressorOnlyInstance.COMPRESSION_ENABLED:
@@ -89,10 +93,12 @@ class MaybeCompressedString(bytearray):
             data = data_bytes
             compressed = False
         ret = bytearray.__new__(cls)
+        ret._cached_hash = data_string_hash
         ret.extend(data)
         ret.compressed = compressed
         if add_callback:
             MemoryCompressorOnlyInstance.add_compression_callback(ret)
+        _MCS_cache[data_string_hash] = ret
         return ret
     
     def __init__(self, d):
@@ -110,6 +116,9 @@ class MaybeCompressedString(bytearray):
         return self.decode('utf-8')
 
     def __hash__(self):
+        cached_hash = self._cached_hash
+        if cached_hash:
+            return cached_hash
         return hash(self.value)
     
     def __eq__(self, other):

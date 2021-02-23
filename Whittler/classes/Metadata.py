@@ -1,6 +1,6 @@
 from Whittler.classes.Singleton import Singleton
 
-WHITTLER_VERSION = "1.0.7"
+WHITTLER_VERSION = "1.1.1"
 
 class Metadata(Singleton):
     

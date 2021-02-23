@@ -144,10 +144,10 @@ class ResultDatabase(RelevanceInterface):
         for resultdict in result_dict_list:
             cur_time = time.time()
             if cur_time-last_report > 5:
-                print_str = f"{parsing_str}{(int((ct/len(result_dict_list)*100)))}% done ({ct} out of {len(result_dict_list)})\r"
+                print_str = f"{parsing_str}{(int((ct/len(result_dict_list)*100)))}% done ({ct} out of {len(result_dict_list)})"
                 if len(print_str)>longest_str_length:
                     longest_str_length = len(print_str)
-                wprint(print_str)
+                wprint(print_str, end='\r')
                 last_report = cur_time
             resultdict["whittler_filename"] = fname
             self.add_result(self.result_class(resultdict), lookup_set=hash_cache)
@@ -168,10 +168,10 @@ class ResultDatabase(RelevanceInterface):
         for output_file in files:
             cur_time = time.time()
             if cur_time-last_report > 5:
-                print_str = f"{parsing_str}{(int((ct/len(files)*100)))}% ({ct} out of {len(files)})\r"
+                print_str = f"{parsing_str}{(int((ct/len(files)*100)))}% ({ct} out of {len(files)})"
                 if len(print_str)>longest_str_length:
                     longest_str_length = len(print_str)
-                wprint(print_str)
+                wprint(print_str, end='\r')
                 last_report = cur_time
             try:
                 self.parse_from_file(dirname+"/"+output_file, hash_cache=hash_cache)
