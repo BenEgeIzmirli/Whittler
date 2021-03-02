@@ -1,10 +1,11 @@
 # just miscellany
-staticanalysis-IOT-runs/
+ignore/*
 Whittler/modules/ripsaw.py
 Whittler/modules/stackpep.py
 Whittler/modules/adt_fuzzing.py
 Whittler/modules/plaintext_files_adt_fuzzing.py
 Whittler/modules/binja_harness.py
+Whittler/modules/binja_enumerate.py
 *__pycache__/
 
 # Byte-compiled / optimized / DLL files

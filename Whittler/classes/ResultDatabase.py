@@ -1,6 +1,8 @@
-from Whittler.classes.Result import RelevanceInterface, Result, ResultDictContainer, RelevanceFilteredResultList
-from Whittler.classes.NestedObjectPointer import NestedObjectPointer, NestedObjectPointerInterface
-from Whittler.classes.input_utils import wprint, winput
+from Whittler.classes.Result import Result
+from Whittler.classes.RelevanceInterface import RelevanceInterface
+from Whittler.classes.ResultDictContainer import ResultDictContainer
+from Whittler.classes.RelevanceFilteredResultList import RelevanceFilteredResultList
+from Whittler.classes.input_utils import wprint
 from Whittler.config import Config
 from collections import OrderedDict
 import time
@@ -15,7 +17,7 @@ try:
 except ImportError:
     print("Warning: pyxDamerauLevenshtein module not detected, fuzzy grouping logic will be impaired.")
     print("         To install it, run 'pip install pyxDamerauLevenshtein'.")
-    normalized_damerau_levenshtein_distance = lambda reference, value: 1
+    normalized_damerau_levenshtein_distance = lambda reference, value: 1.
 import difflib
 
 # import cProfile, pstats, io
@@ -24,21 +26,23 @@ import difflib
 
 class ResultDatabase(RelevanceInterface):
     
-    def __init__(self, result_class=Result):
+    def __init__(self, result_class=Result, pointer_to_me=None):
         assert issubclass(result_class, Result)
-        NestedObjectPointerInterface.__init__(self)
-        RelevanceInterface.__init__(self)
+        RelevanceInterface.__init__(self, pointer_to_me)
+
         self.result_class = result_class
-        self.results = RelevanceFilteredResultList()
-        self.categorized_results = ResultDictContainer(self)
-        self.grouped_results = ResultDictContainer(self)
+
+        result_pointer = self.pointer_to_me.copy().access_property("results")
+        self.results = RelevanceFilteredResultList(pointer_to_me=result_pointer)
+
+        categorized_results_pointer = self.pointer_to_me.copy().access_property("categorized_results")
+        self.categorized_results = ResultDictContainer(self, pointer_to_me=categorized_results_pointer)
+
+        grouped_results_pointer = self.pointer_to_me.copy().access_property("grouped_results")
+        self.grouped_results = ResultDictContainer(self, pointer_to_me=grouped_results_pointer)
         
-        self.root_pointer = NestedObjectPointer(self)
-        self.current_pointer = self.root_pointer.copy()
+        self.current_pointer = self.pointer_to_me.copy()
         self.context_pointers = OrderedDict()
-        self._construct_view_cache = None
-        self._construct_view_cache_pointer = None
-        self._construct_view_cache_params = None
 
         # self.pr = cProfile.Profile()
     
@@ -66,31 +70,29 @@ class ResultDatabase(RelevanceInterface):
     #  Navigation functions
     #
 
-    def construct_view(self, pointer=None, limit=None, show_irrelevant=False, sort_by=None, sort_numeric=False, sort_reverse=False):
+    def construct_view(self, pointer=None, override_options={}):
         if pointer is None:
             pointer = self.current_pointer
-        if self._construct_view_cache_pointer is not None and self._construct_view_cache_pointer == pointer:
-            if self._construct_view_cache_params is not None and (limit,show_irrelevant,sort_by,sort_numeric,sort_reverse)==self._construct_view_cache_params:
-                return self._construct_view_cache
         obj = pointer.give_pointed_object()
-        viewstr, ptrdict = obj.show_view(pointer_to_me=pointer, limit=limit, show_irrelevant=show_irrelevant, sort_by=sort_by, sort_numeric=sort_numeric, sort_reverse=sort_reverse)
-        self._construct_view_cache_pointer = pointer.copy()
-        self._construct_view_cache = (viewstr, ptrdict)
-        self._construct_view_cache_params = (limit,show_irrelevant,sort_by,sort_numeric,sort_reverse)
-        return self._construct_view_cache
+        if override_options:
+            options = {k:v for k,v in obj.objectview.items()}
+            options.update(override_options)
+        else:
+            options = None
+        return obj.show_view(objectview=options)
     
-    def update_current_view(self, limit=None, sort_by=None, sort_numeric=False, sort_reverse=False):
-        viewstr, ptrcontext = self.construct_view(self.current_pointer, limit=limit, sort_by=sort_by, sort_numeric=sort_numeric, sort_reverse=sort_reverse)
+    def update_current_view(self, override_options={}):
+        viewstr, ptrcontext = self.construct_view(self.current_pointer, override_options=override_options)
         self.context_pointers = ptrcontext
         return viewstr
     
-    def navigate_view(self, pointer=None, limit=None, sort_by=None, sort_numeric=False, sort_reverse=False):
+    def navigate_view(self, pointer=None, override_options={}):
         if pointer is None:
-            self.current_pointer = self.root_pointer.copy()
+            self.current_pointer = self.pointer_to_me.copy()
         else:
             self.current_pointer = pointer.copy()
-        return self.update_current_view(limit=limit, sort_by=sort_by, sort_numeric=sort_numeric, sort_reverse=sort_reverse)
-    
+        return self.update_current_view(override_options=override_options)
+
 
     #######################
     #  Grouping functions
@@ -127,7 +129,6 @@ class ResultDatabase(RelevanceInterface):
         for result in result_group:
             attrval = dict.__getitem__(result, attrname) # gets the underlying CompressedBytes object if memory compression enabled
             self.grouped_results[groupval][attrval].append(result)
-        self.grouped_results.flush_pointer_cache()
 
 
     #################################
@@ -157,7 +158,7 @@ class ResultDatabase(RelevanceInterface):
             final_report = f"{parsing_str}Done (took {timing}s)"
             wprint(final_report + " "*(len(final_report)-max(Config.MAX_OUTPUT_WIDTH,longest_str_length)))
 
-    def parse_from_directory(self,dirname,hash_cache=None):
+    def parse_from_directory(self,dirname,hash_cache=None,multiprocessing_import=False):
         files = os.listdir(dirname)
         last_report = time.time()
         start = last_report
@@ -165,19 +166,38 @@ class ResultDatabase(RelevanceInterface):
         parsing_str = f"FILES PARSED: "
         longest_str_length = 0
         wprint(f"Parsing from {dirname} ...")
-        for output_file in files:
-            cur_time = time.time()
-            if cur_time-last_report > 5:
-                print_str = f"{parsing_str}{(int((ct/len(files)*100)))}% ({ct} out of {len(files)})"
-                if len(print_str)>longest_str_length:
-                    longest_str_length = len(print_str)
-                wprint(print_str, end='\r')
-                last_report = cur_time
-            try:
-                self.parse_from_file(dirname+"/"+output_file, hash_cache=hash_cache)
-            except PermissionError as e:
-                wprint(f"WARNING: failed to open {dirname+'/'+output_file}: {e}")
-            ct += 1
+        try:
+            if multiprocessing_import:
+                import multiprocessing as mp
+                p = mp.Pool()
+                # # do this to support KeyboardInterrupt
+                # # https://stackoverflow.com/questions/1408356/keyboard-interrupts-with-pythons-multiprocessing-pool
+                # resultdictlist_generator = (resultdict for resultdict in p.map_async(
+                #     self.result_class._give_result_dict_list,
+                #     (dirname+"/"+fname for fname in files),
+                #     chunksize=20).get(999999))
+                resultdictlist_generator = p.imap_unordered(
+                    self.result_class._give_result_dict_list,
+                    (dirname+"/"+fname for fname in files),
+                    chunksize=20)
+                p.close()
+            else:
+                resultdictlist_generator = (self.parse_from_file(dirname+"/"+fname, hash_cache=hash_cache) for fname in files)
+            for resultdictlist in resultdictlist_generator:
+                cur_time = time.time()
+                if cur_time-last_report > 5:
+                    print_str = f"{parsing_str}{(int((ct/len(files)*100)))}% ({ct} out of {len(files)})"
+                    if len(print_str)>longest_str_length:
+                        longest_str_length = len(print_str)
+                    wprint(print_str, end='\r')
+                    last_report = cur_time
+                if multiprocessing_import:
+                    for result in resultdictlist:
+                        self.add_result(result, lookup_set=hash_cache)
+                ct += 1
+        finally:
+            if multiprocessing_import:
+                p.terminate()
         timing = "{:.2f}".format(time.time()-start)
         final_report = f"Parsing from {dirname} done (took {timing}s)"
         wprint(final_report + " "*(len(final_report)-max(Config.MAX_OUTPUT_WIDTH,longest_str_length)))
@@ -192,12 +212,22 @@ class ResultDatabase(RelevanceInterface):
         try:
             try:
                 with gzip.GzipFile(fname, "rb") as f:
-                    results = pickle.load(f)
+                    pickle.load(f)
+                def result_gen():
+                    with gzip.GzipFile(fname, "rb") as f:
+                        while True:
+                            try:
+                                yield pickle.load(f)
+                            except EOFError:
+                                break
+                results = result_gen()
+                results_len = None
                 pickle_import = True
             except pickle.UnpicklingError:
                 try:
                     with gzip.GzipFile(fname, "rb") as f:
                         results = json.loads(f.read().decode('utf-8'))
+                        results_len = len(results)
                 except json.decoder.JSONDecodeError:
                     raise Exception("Failed to import file as either binary (pickle) or JSON data.")
         except:
@@ -222,7 +252,11 @@ class ResultDatabase(RelevanceInterface):
         for result in results:
             cur_time = time.time()
             if cur_time-last_report > 5:
-                status_str = f"{importing_str}{(int((ct/len(results)*100)))}% done ({ct} out of {len(results)})"
+                if results_len:
+                    progress_str = f"{(int((ct/results_len*100)))}% done ({ct} out of {results_len})"
+                else:
+                    progress_str = f"{ct} done"
+                status_str = f"{importing_str}{progress_str}"
                 if len(status_str) > biggest_status_str_len:
                     biggest_status_str_len = len(status_str)
                 wprint(status_str, end='\r')
@@ -254,36 +288,35 @@ class ResultDatabase(RelevanceInterface):
     #  NestedObjectPointerInterface implementations
     #
     
-    def enumerate_child_pointers(self, pointer_to_me):
+    def give_child_pointers(self):
         ret = OrderedDict()
         
-        ptr = self.root_pointer.copy()
-        ptr.access_property("categorized_results")
+        ptr = self.pointer_to_me.copy().access_property("categorized_results")
         ret["categorized_results"] = ptr
         
-        ptr = self.root_pointer.copy()
-        ptr.access_property("grouped_results")
+        ptr = self.pointer_to_me.copy().access_property("grouped_results")
         ret["grouped_results"] = ptr
         
-        self._cached_pointers = ret
         return ret
     
     def size(self):
         return self.results.size()
     
     def all_result_objects(self):
-        return self.results.all_result_objects()
+        yield from self.results.all_result_objects()
     
-    def show_view(self, pointer_to_me=None, ct=0, limit=None, show_irrelevant=False, sort_by=None, sort_numeric=False, sort_reverse=False):
+    def show_view(self, ct=0, objectview=None):
+        if objectview is None:
+            objectview = self.objectview
         s = "\n"
         s += "+=================================+\n"
         s += "|  {:6d} total relevant results  |\n".format(len(self.results))
         s += "+=================================+\n"
         ret = OrderedDict()
-        for childname, childptr in self.give_child_pointers(self.root_pointer).items():
+        for childname, childptr in self.give_child_pointers().items():
             s += f"\n{childname}:\n"
             childobj = childptr.give_pointed_object()
-            s2, resultdict = childobj.show_view(childptr, ct=ct, limit=limit, show_irrelevant=show_irrelevant, sort_by=sort_by, sort_numeric=sort_numeric, sort_reverse=sort_reverse)
+            s2, resultdict = childobj.show_view(ct=ct, objectview=objectview)
             s += s2
             for k,v in resultdict.items():
                 ret[k] = v

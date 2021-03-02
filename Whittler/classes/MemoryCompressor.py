@@ -1,11 +1,12 @@
-import zlib
+# from Whittler.config import ConfigurableInterface
 from Whittler.classes.Singleton import Singleton
+import zlib
 
 # TODO: this can all be coded in cpython! That would be a kickass library to have exist!
 # https://docs.python.org/3/c-api/buffer.html#bufferobjects
 
 # based on https://stackoverflow.com/questions/479218/how-to-compress-small-strings
-class MemoryCompressor(Singleton):
+class MemoryCompressor(Singleton):#, ConfigurableInterface):
     def __init__(self):
         # wbits=-15 gives a raw output stream with no header or checksum, with a 2**15 byte window.
         self.compressor = zlib.compressobj(wbits=-15)
@@ -14,7 +15,7 @@ class MemoryCompressor(Singleton):
 
         self.trainee_compression_callbacks = []
         self.training_mode = True
-        self.total_train_count = 1000
+        self.total_train_count = 100000
 
         self.COMPRESSION_ENABLED = False
 
@@ -34,6 +35,7 @@ class MemoryCompressor(Singleton):
         # The second half of the if statement is necessary because we call train() on each call to Result.__setitem__,
         # not on each creation of a Result object.
         if len(self.trainee_compression_callbacks) >= self.total_train_count:
+            print("\nMEMORY COMPRESSION TRAINING DONE.")
             self.disable_training_mode()
             return self.compress(training_str.encode('utf-8'))
         
@@ -114,6 +116,13 @@ class MaybeCompressedString(bytearray):
         if self.compressed:
             return MemoryCompressorOnlyInstance.decompress(self).decode('utf-8')
         return self.decode('utf-8')
+    
+    def __repr__(self):
+        value = self.value
+        valuerepr = f"{value[:97]}..." if len(self.value) > 100 else value
+        return f"{self.__class__.__name__}({valuerepr})"
+    
+    __str__ = __repr__
 
     def __hash__(self):
         cached_hash = self._cached_hash
@@ -124,18 +133,6 @@ class MaybeCompressedString(bytearray):
     def __eq__(self, other):
         return hash(self) == hash(other)
     
-    # _initted = False
-    # def __init__(self,data_string):
-    #     if not self._initted:
-    #         if MemoryCompressorOnlyInstance.COMPRESSION_ENABLED:
-    #             if MemoryCompressorOnlyInstance.training_mode:
-    #                 _value = MemoryCompressorOnlyInstance.train(data_string, self)
-    #                 self._value = _value
-    #                 self._compressed = type(_value) is bytes
-    #             else:
-    #                 self._value = MemoryCompressorOnlyInstance.compress(data_string)
-    #                 self._compressed = True
-    #         else:
-    #             self._value = data_string
-    #             self._compressed = False
-    #         self._initted = True
+    def __len__(self):
+        return len(self.value)
+    

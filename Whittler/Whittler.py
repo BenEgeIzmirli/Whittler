@@ -4,7 +4,6 @@ import os
 import sys
 
 WHITTLER_DIRNAME = os.path.dirname(os.path.realpath(__file__))
-# print(os.path.dirname(WHITTLER_DIRNAME))
 sys.path.append(os.path.dirname(WHITTLER_DIRNAME))
 try:
     sys.path.remove(WHITTLER_DIRNAME)
@@ -12,8 +11,10 @@ except ValueError: # Already removed
     pass
 
 from Whittler.classes.ResultDatabase import ResultDatabase
-from Whittler.classes.Result import Result, RelevanceFilteredResultList
+from Whittler.classes.Result import Result
 from Whittler.classes.input_utils import *
+from Whittler.classes.NestedObjectPointer import ObjectView
+from Whittler.classes.RelevanceFilteredResultList import RelevanceFilteredResultList
 import importlib
 import importlib.machinery
 from pathlib import Path
@@ -24,18 +25,23 @@ import pickle
 import gzip
 import traceback
 
+try:
+    import IPython
+    IPYTHON_INSTALLED = True
+except ImportError:
+    IPYTHON_INSTALLED = False
+
 
 def main_loop(resultdb):
     global redirect_file, global_redirect_file, cached_commands
-    sort_by = None
-    sort_numeric = False
-    sort_reverse = False
+    current_view = None
     while True:
         try:
             if not redirect_file is None:
                 redirect_file.close()
                 redirect_file = None
-            resultdb.update_current_view(sort_by=sort_by, sort_numeric=sort_numeric, sort_reverse=sort_reverse)
+            if current_view is None:
+                current_view = resultdb.navigate_view()
             if len(cached_commands):
                 user_input = cached_commands[0]
                 cached_commands = cached_commands[1:]
@@ -59,9 +65,33 @@ def main_loop(resultdb):
                 except PermissionError:
                     wprint("Failed to open the specified file, maybe try an absolute path? (FYI, quotes are supported.)")
 
+
+            # In the following switch statement, "continue" to skip updating the current view,
+            # otherwise, the view will be updated. Set the below navigate_ptr variable to the
+            # pointer to which we want to navigate, and it will be reset on the next loop.
+            navigate_ptr = None
+
             if verb == "help":
                 print_help()
                 continue
+            elif verb == "shell":
+                if IPYTHON_INSTALLED:
+                    wprint("Welcome to the subshell, you can use the resultdb object to interact with the dataset.")
+                    # with IPython.utils.io.capture_output() as output:
+                    IPython.embed(colors="neutral")
+                    # wprint(output.stdout,quiet=True)
+                else:
+                    wprint("No IPython package detected, falling back to basic eval() REPL.")
+                    wprint("Type \"exit\" to exit back to the main Whittler shell.")
+                    while True:
+                        try:
+                            cmd = winput("> ").strip()
+                            if cmd == "exit":
+                                break
+                            wprint(eval(cmd, globals(), locals()))
+                        except:
+                            print(traceback.format_exc())
+                    wprint("Exiting subshell.")
 
 
             ########################
@@ -71,53 +101,36 @@ def main_loop(resultdb):
             elif verb == "show":
                 limit = get_int_from_args(args)
                 limit = limit if limit else None # get_int_from_args returns False if no value was supplied for the arg
-                wprint(resultdb.construct_view(limit=limit, sort_by=sort_by, sort_numeric=sort_numeric, sort_reverse=sort_reverse)[0])
+                wprint(resultdb.construct_view(override_options={"limit":limit})[0])
                 continue
             elif verb == "showall":
                 limit = get_int_from_args(args)
                 limit = limit if limit else None # get_int_from_args returns False if no value was supplied for the arg
-                wprint(resultdb.construct_view(limit=limit, show_irrelevant=True, sort_by=sort_by, sort_numeric=sort_numeric, sort_reverse=sort_reverse)[0])
+                wprint(resultdb.construct_view(override_options={"limit":limit,"show_irrelevant":True})[0])
                 continue
             elif verb == "dig":
-                ptr = get_ptr_from_id_arg(resultdb, args)
-                if ptr is False:
+                navigate_ptr = get_ptr_from_id_arg(resultdb, args)
+                if navigate_ptr is False:
                     wprint("no [attr] specified, no digging performed.")
                     continue
-                if ptr is None:
+                if navigate_ptr is None:
                     continue
-                sort_by = None
-                sort_numeric = False
-                sort_reverse = False
-                resultdb.navigate_view(ptr)
-                continue
             elif verb == "up":
                 if resultdb.current_pointer.is_base_pointer():
                     wprint("Already at root context.\n")
                     continue
-                sort_by = None
-                sort_numeric = False
-                sort_reverse = False
                 resultdb.current_pointer.go_up_level()
                 # We want to pop out from the categorized_results or grouped_results contexts implicitly.
                 if len(resultdb.current_pointer.path) == 1:
                     resultdb.current_pointer.go_up_level()
-                continue
             elif verb == "top":
-                while not resultdb.current_pointer.is_base_pointer():
-                    resultdb.current_pointer.go_up_level()
-                sort_by = None
-                sort_numeric = False
-                sort_reverse = False
+                resultdb.navigate_view()
                 continue
             elif verb == "dump":
                 limit = get_int_from_args(args)
                 limit = limit if limit else None # get_int_from_args returns False if no value was supplied for the arg
                 wprint(resultdb.results.show_view(limit=limit)[0])
-            elif verb == "dumpall":
-                limit = get_int_from_args(args)
-                limit = limit if limit else None # get_int_from_args returns False if no value was supplied for the arg
-                # todo
-                wprint(resultdb.results.show_view(limit=limit)[0])
+                continue
             elif verb == "exit":
                 sys.exit(0)
 
@@ -134,7 +147,6 @@ def main_loop(resultdb):
                     continue
                 obj = ptr.give_pointed_object()
                 obj.mark_irrelevant()
-                continue
             elif verb == "relevant":
                 ptr = get_ptr_from_id_arg(resultdb, args)
                 if ptr is False:
@@ -143,8 +155,7 @@ def main_loop(resultdb):
                     continue
                 obj = ptr.give_pointed_object()
                 obj.mark_relevant()
-                continue
-            elif verb == "group":
+            elif verb == "fuzzygroup":
                 ptr = get_ptr_from_id_arg(resultdb, args)
                 if ptr is False:
                     wprint("need to specify an [id], the value of which to group by.")
@@ -161,9 +172,50 @@ def main_loop(resultdb):
                         continue
                     groupval = obj[groupattr]
                 else:
-                    wprint("[id] must point to a specific result object.")
+                    wprint("[attr] must point to a specific attribute name of this result.")
+                    continue
                 group_interactive(resultdb, groupattr, groupval)
-                continue
+            elif verb == "ungroup":
+                ptr = get_ptr_from_id_arg(resultdb, args)
+                if ptr is False:
+                    wprint("need to specify an [id], the value of which to group by.")
+                    continue
+                if ptr is None:
+                    wprint(f"couldn't find result object with id {args[1]}.")
+                    continue
+                group_ptr = resultdb.current_pointer
+                if not any(vertex.value=="grouped_results" for vertex in group_ptr.path):
+                    wprint("The current view must be of a result group to use the \"ungroup\" function.")
+                    continue
+                # We know that ptr points to an object in the current view context, since get_ptr_from_id_arg
+                # retrieves the ptr by looking it up in the current view context.
+                group = group_ptr.give_pointed_object()
+                ungroup_obj_key = ptr.path[-1].value
+                del group[ungroup_obj_key]
+            elif verb == "find":
+                if not len(args):
+                    wprint("Need to provide a string to search by.")
+                    continue
+                filter_str = args[0]
+                filtered_attr = get_attrname_from_attribute_arg(resultdb, args, attr_arg_position=1)
+                if filtered_attr is False:
+                    filtered_attr = select_attribute(resultdb, "Which attribute would you like to filter by? ")
+                elif filtered_attr is None:
+                    continue
+                matches = RelevanceFilteredResultList(result for result in resultdb.results if filter_str in result[filtered_attr])
+                wprint(matches.show_view()[0])
+            elif verb == "invfind":
+                if not len(args):
+                    wprint("Need to provide a string to search by.")
+                    continue
+                filter_str = args[0]
+                filtered_attr = get_attrname_from_attribute_arg(resultdb, args, attr_arg_position=1)
+                if filtered_attr is False:
+                    filtered_attr = select_attribute(resultdb, "Which attribute would you like to filter by? ")
+                elif filtered_attr is None:
+                    continue
+                matches = RelevanceFilteredResultList(result for result in resultdb.results if filter_str not in result[filtered_attr])
+                wprint(matches.show_view()[0])
             elif verb == "search":
                 if not len(args):
                     wprint("Need to provide a string to search by.")
@@ -177,7 +229,6 @@ def main_loop(resultdb):
                 matches = [result for result in resultdb.results if filter_str in result[filtered_attr]]
                 resultdb.register_grouped_results(filtered_attr,filter_str,matches)
                 wprint(f"Found {len(matches)} results, and saved them as a new result group.")
-                continue
             elif verb == "invsearch":
                 if not len(args):
                     wprint("Need to provide a string to search by.")
@@ -191,7 +242,6 @@ def main_loop(resultdb):
                 matches = [result for result in resultdb.results if filter_str not in result[filtered_attr]]
                 resultdb.register_grouped_results(filtered_attr,filter_str,matches)
                 wprint(f"Found {len(matches)} results, and saved them as a new result group.")
-                continue
             elif verb == "game":
                 ptr = get_ptr_from_id_arg(resultdb, args)
                 if ptr is False:
@@ -201,7 +251,6 @@ def main_loop(resultdb):
                 else:
                     obj = ptr.give_pointed_object()
                 play_elimination_game(resultdb, obj)
-                continue
             elif verb == "filter":
                 if not len(args):
                     wprint("Need to provide a string to filter by.")
@@ -218,7 +267,6 @@ def main_loop(resultdb):
                         result.mark_irrelevant()
                         ct += 1
                 wprint(f"Marked {ct} results as irrelevant using the filter.")
-                continue
             elif verb == "invfilter":
                 if not len(args):
                     wprint("Need to provide a string to filter by.")
@@ -235,18 +283,6 @@ def main_loop(resultdb):
                         result.mark_irrelevant()
                         ct += 1
                 wprint(f"Marked {ct} results as irrelevant using the filter.")
-                continue
-            elif verb == "shell":
-                wprint("Entering subshell in main() loop. Type \"exit\" to exit back to the main Whittler shell.")
-                while True:
-                    try:
-                        cmd = winput("> ").strip()
-                        if cmd == "exit":
-                            break
-                        wprint(eval(cmd, globals(), locals()))
-                    except:
-                        print(traceback.format_exc())
-                wprint("Exiting subshell.")
 
             
             
@@ -260,10 +296,9 @@ def main_loop(resultdb):
                     quieted_attr = select_attribute(resultdb, "Which attribute would you like to suppress in output? ")
                 elif quieted_attr is None:
                     continue
-                resultdb.result_class.SILENCED_ATTRIBUTES.add(quieted_attr)
-                continue
+                ObjectView.global_options["quiet"].append(quieted_attr)
             elif verb == "unquiet":
-                attrs = list(resultdb.result_class.SILENCED_ATTRIBUTES)
+                attrs = ObjectView.global_options["quiet"]
                 if not len(attrs):
                     wprint("No silenced attributes to unquiet.")
                     continue
@@ -279,56 +314,32 @@ def main_loop(resultdb):
                 elif quieted_attr not in attrs:
                     wprint("That attribute was not silenced, no action taken.")
                     continue
-                resultdb.result_class.SILENCED_ATTRIBUTES.remove(quieted_attr)
-                continue
+                ObjectView.global_options["quiet"].remove(quieted_attr)
             elif verb == "solo":
                 solo_attr = get_attrname_from_attribute_arg(resultdb, args)
                 if solo_attr is False:
                     solo_attr = select_attribute(resultdb, "Which attribute would you like to print exclusively in output? ")
                 elif solo_attr is None:
                     continue
-                resultdb.result_class.SOLO_ATTRIBUTE = solo_attr
-                continue
+                ObjectView.global_options["solo"] = solo_attr
             elif verb == "SOLO":
                 solo_attr = get_attrname_from_attribute_arg(resultdb, args)
                 if solo_attr is False:
                     solo_attr = select_attribute(resultdb, "Which attribute would you like to print exclusively in output? ")
                 elif solo_attr is None:
                     continue
-                resultdb.result_class.SUPER_SOLO_ATTRIBUTE = solo_attr
-                continue
+                ObjectView.global_options["SOLO"] = solo_attr
             elif verb == "unsolo":
-                resultdb.result_class.SOLO_ATTRIBUTE = None
-                resultdb.result_class.SUPER_SOLO_ATTRIBUTE = None
-                continue
-            elif verb == "sort":
+                ObjectView.global_options["solo"] = None
+                ObjectView.global_options["SOLO"] = None
+            elif verb in ("sort","sortn","rsort","rsortn"):
                 if not len(args):
-                    wprint("Need a column name or attribute value to sort by.")
-                sort_by = args[0]
-                sort_numeric = False
-                sort_reverse = False
-                continue
-            elif verb == "sortn":
-                if not len(args):
-                    wprint("Need a column name or attribute value to sort by.")
-                sort_by = args[0]
-                sort_numeric = True
-                sort_reverse = False
-                continue
-            elif verb == "rsort":
-                if not len(args):
-                    wprint("Need a column name or attribute value to sort by.")
-                sort_by = args[0]
-                sort_numeric = False
-                sort_reverse = True
-                continue
-            elif verb == "rsortn":
-                if not len(args):
-                    wprint("Need a column name or attribute value to sort by.")
-                sort_by = args[0]
-                sort_numeric = True
-                sort_reverse = True
-                continue
+                    wprint("Need a column name to sort by.")
+                    continue
+                objview = resultdb.current_pointer.give_pointed_object().objectview
+                objview["sort_by"] = args[0]
+                objview["sort_numeric"] = verb.endswith("n")
+                objview["sort_reverse"] = verb.startswith("r")
             elif verb == "history":
                 wprint()
                 for cmd in command_history:
@@ -344,7 +355,6 @@ def main_loop(resultdb):
                     wprint(f"Failed to parse {args[0]} as an integer.")
                     continue
                 Config.MAX_OUTPUT_WIDTH = new_width
-                continue
             elif verb == "exportjson":
                 if not len(args):
                     wprint("Need a filename to export to.")
@@ -369,7 +379,7 @@ def main_loop(resultdb):
                         with gzip.GzipFile(fname,"wb") as f:
                             json_encoder = json.JSONEncoder()
                             for result_json in all_results_json_gen:
-                                for chunk in json_encoder.iterencode(resultlist):
+                                for chunk in json_encoder.iterencode(result_json):
                                     f.write(chunk.encode('utf-8'))
                         wprint(f"Export success, compressed JSON output written to {fname}.")
                     except PermissionError:
@@ -377,6 +387,7 @@ def main_loop(resultdb):
                     continue
                 except Exception as e:
                     wprint(f"Exception encountered while exporting: {e}")
+                    continue
             elif verb == "export":
                 if not len(args):
                     wprint("Need a filename to export to.")
@@ -392,7 +403,7 @@ def main_loop(resultdb):
                         continue
                     else:
                         obj = ptr.give_pointed_object()
-                    resultlist = obj.all_result_objects()
+                    resultgen = obj.all_result_objects()
                     try:
                         if os.path.isfile(fname):
                             answer = winput("WARNING: file already exists. Override? (N/y) ").strip().lower()
@@ -401,17 +412,25 @@ def main_loop(resultdb):
                                 continue
                             wprint("Overwriting file...")
                         with gzip.GzipFile(fname,"wb") as f:
-                            pickle.dump(resultlist, f)
+                            # pickle-dump the results one by one, allowing them to be loaded one-by-one when loading back.
+                            # https://stackoverflow.com/questions/20716812/saving-and-loading-multiple-objects-in-pickle-file
+                            for result in resultgen:
+                                pickle.dump(result, f)
                         wprint(f"Export success, compressed serialized output written to {fname}.")
                     except PermissionError:
                         wprint("Failed to open the specified file, maybe try an absolute path? (FYI, quotes are supported.)")
                     continue
                 except Exception as e:
                     wprint(f"Exception encountered while exporting: {e}")
-
+                    continue
             else:
                 wprint("Unrecognized command.\n")
                 continue
+            
+            if navigate_ptr:
+                current_view = resultdb.navigate_view(navigate_ptr)
+            else:
+                current_view = resultdb.update_current_view()
         except KeyboardInterrupt:
             sys.exit(0)
         except SystemExit:
@@ -501,6 +520,10 @@ def main():
     diargs.add_argument('--memory_compression',
                         help='enable in-memory compression for working with very large datasets',
                         action='store_true')
+    diargs.add_argument('--multiprocessing',
+                        help='enable multiprocessing for working with very large datasets (in development, currently only '+\
+                             'accelerates imports from directories with many files)',
+                        action='store_true')
 
     # Output control args
     ocargs = parser.add_argument_group("output control arguments")
@@ -531,6 +554,10 @@ def main():
     if args.memory_compression:
         Config.MEMORY_COMPRESSION = True
         Config.MemoryCompressor.COMPRESSION_ENABLED = True
+    
+    if args.multiprocessing:
+        Config.MULTIPROCESSING = True
+        Config.MemoryCompressor.MULTIPROCESSING = True
 
     if not args.log_output is None:
         logdir = args.log_output[0] if isinstance(args.log_output,list) else args.log_output
@@ -577,7 +604,7 @@ def main():
             wprint("Parsing files from provided directories...")
             wprint()
             for d in args.dir:
-                resultdb.parse_from_directory(d, hash_cache=hash_cache)
+                resultdb.parse_from_directory(d, hash_cache=hash_cache, multiprocessing_import=args.multiprocessing)
         if args.file:
             wprint("Parsing provided files...")
             wprint()

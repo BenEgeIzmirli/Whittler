@@ -6,44 +6,49 @@ from collections import Counter
 
 
 actions = {
+    "general" : {
+        "exit" : "Gracefully exit the program",
+        "shell" : "Drop into an IPython shell to interact with the dataset."
+    },
     "navigation" : {
         "show [[limit]]" : "Show the current data context, up to [limit] entries (shows all entries by default). Mutes "+\
-                           "results or table entries with 0 relevant results.",
+                           "irrelevant results or table entries with 0 relevant results.",
         "showall [[limit]]" : "Show the current data context, up to [limit] entries (shows all entries by default). Includes "+\
-                              "results or table entries with 0 relevant results.",
+                              "irrelevant results or table entries with 0 relevant results.",
         "dig [attr]" : "Dig into a specific data grouping category, either by attribute name, or by attribute id",
         "up" : "Dig up a level into the broader data grouping category",
         "top" : "Dig up to the top level",
         "dump [[limit]]" : "Display every relevant result in every category, up to [limit] entries (shows all by default)",
-        "dumpall [[limit]]" : "Display every result, both relevant and irrelevant, in every category, up to [limit] entries "+\
-                              "(shows all by default)",
-        #"search [searchstr]" : "Finds the thing", # todo
         "exit" : "Gracefully exit the program"
     },
     "data model interaction" : {
         "irrelevant [[id]]" : "Mark all elements in the current context, or those referenced by [id], as irrelevant results",
         "relevant [[id]]" : "Mark all elements in the current context, or those referenced by [id], as relevant results",
-        "group [id] [attr]" : "Using data science, group all results in the database by similarity to the attribute [attr] "+\
-                                "of the result referenced by [id].",
         "filter [str] [attr]" : "Mark all results containing [str] in a particular attribute [attr] as irrelevant "+\
                                 "(case-insensitive)",
         "invfilter [str] [attr]" : "Mark all results not containing [str] in a particular attribute [attr] as irrelevant "+\
                                    "(case-insensitive)",
+        "find [str] [attr]" : "Find and display all results that contain [str] in their [attr] attribute (case-sensitive)",
+        "invfind [str] [attr]" : "Find and display all results that do not contain [str] in their [attr] attribute (case-sensitive)",
         "search [str] [attr]" : "Create a new result group with all results that contain [str] in their [attr] "+\
                                 "attribute (case-sensitive)",
         "invsearch [str] [attr]" : "Create a new result group with all results that do not contain [str] in their [attr] "+\
                                    "attribute (case-sensitive)",
+        #"group [attr]" : "",
+        "fuzzygroup [id] [attr]" : "Using data science, group all results in the database by similarity to the attribute "+\
+                                   "[attr] of the result referenced by [id].",
+        "ungroup [id]" : "Remove the result referenced by [id] from the result group in the current view.",
         "game [[id]]" : "Play a game where individual results are presented one-by-one, and the user is asked whether "+\
                         "the result is relevant or not and why. Using this information, other similar results are also "+\
                         "eliminated in bulk. If [id] is specified, then the results presented are limited to the result "+\
                         "group represented by the specified [id]."
     },
     "output" : {
-        "quiet [[attr]]" : "Suppress an attribute from being displayed when printing out raw result data",
-        "unquiet [[attr]]" : "Undo the suppression from an earlier quiet command",
-        "solo [[attr]]" : "Print only a single attribute's value when printing out raw result data",
-        "SOLO [[attr]]" : "Print ONLY a single attribute's value when printing out raw result data, with no context IDs or "+\
-                          "attribute value names",
+        "quiet [attr]" : "Suppress an attribute from being displayed when printing out raw result data",
+        "unquiet [attr]" : "Undo the suppression from an earlier quiet command",
+        "solo [attr]" : "Print only a single attribute's value when printing out raw result data",
+        "SOLO [attr]" : "Print ONLY a single attribute's value when printing out raw result data, with no context IDs or "+\
+                        "attribute value names",
         "unsolo" : "Disable solo mode. Note that this retains any attributes suppressed using the \"quiet\" command.",
         "sort [colname]" : "Sorts the displayed results by the value in the specified column. Use quotes if the column name "+\
                            "has a space in it.",
@@ -55,10 +60,10 @@ actions = {
                              "column name has a space in it.",
         "history" : "Print all commands that have been run in this session so far",
         "width [numchars]" : "Modify the maxiumum terminal width, in characters, that all output will be formatted to",
-        "exportjson [fname] [[id]]" : "Export all relevant results in JSON form at into the file [fname]. Optionally, limit "+\
-                                      "the output to the result set as referenced by [id].",
-        "export [fname] [[id]]" : "Export all relevant results in Python Pickle (serialized binary) form at into the file [fname]. "+\
-                                  "Optionally, limit the output to the result set as referenced by [id]."
+        "exportjson [fname] [[id]]" : "Export all relevant results in JSON form into the gzip-compressed file [fname]. "+\
+                                      "Optionally, limit the output to the result set as referenced by [id].",
+        "export [fname] [[id]]" : "Export all relevant results in Python Pickle (serialized binary) form at into the gzip-compressed "+\
+                                  "file [fname]. Optionally, limit the output to the result set as referenced by [id]."
     }
 }
 
@@ -95,14 +100,15 @@ def get_redirect_file():
 
 class _NoInput:
     pass
-def wprint(s=_NoInput,end="\n"):
+def wprint(s=_NoInput,end="\n",quiet=False):
     if s is _NoInput:
         s = ""
     if not redirect_file is None:
         redirect_file.write(str(s)+end)
     if not global_redirect_file is None:
         global_redirect_file.write(str(s)+end)
-    print(s,end=end)
+    if not quiet:
+        print(s,end=end)
 
 def winput(msg):
     user_input = input(msg)
@@ -164,7 +170,7 @@ def get_ptr_from_id_arg(resultdb, args, id_arg_position=0, quiet=False):
             # The attribute values will be the .value property of the Vertex object given by the last
             # get_by_index operation called on this pointer.
             if ptr.path[-1].value == choice:
-                return ptr
+                return ptr.copy()
         if not quiet:
             wprint(f"Could not recognize \"{choice}\" as one of the attributes of this dataset.\n")
         return None
@@ -178,9 +184,9 @@ def get_ptr_from_id_arg(resultdb, args, id_arg_position=0, quiet=False):
 
 # False means no value was supplied for this arg position, None means failed to find corresponding context pointer
 def get_attrname_from_attribute_arg(resultdb, args, attr_arg_position=0):
-    ptr = get_ptr_from_id_arg(resultdb, args, id_arg_position=attr_arg_position, quiet=True)
-    if ptr is False:
-        return False
+    # ptr = get_ptr_from_id_arg(resultdb, args, id_arg_position=attr_arg_position, quiet=True)
+    # if ptr is False:
+    #     return False
     attrname = args[attr_arg_position]
     if attrname not in resultdb.result_class.ATTRIBUTES:
         return None
@@ -442,7 +448,7 @@ def play_elimination_game(resultdb, obj):
                 if group_ptr is None:
                     continue
                 irrelevant_resultdict = group_ptr.give_pointed_object()
-                num_results_eliminated = len(irrelevant_resultdict.all_result_objects())
+                num_results_eliminated = len([r for r in irrelevant_resultdict.all_result_objects()])
                 irrelevant_resultdict.mark_irrelevant()
             elif answer == 4:
                 generate_report = False

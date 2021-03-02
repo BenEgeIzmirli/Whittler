@@ -1,6 +1,7 @@
-from collections import namedtuple
 from Whittler.classes.Metadata import MetadataInterface
 from Whittler.config import ConfigurableInterface
+from collections import namedtuple, ChainMap
+
 
 Vertex = namedtuple("Vertex", ["operation","value"])
 
@@ -17,10 +18,12 @@ class NestedObjectPointer:
     def access_property(self, propname):
         self.path.append(Vertex("__getattribute__", propname))
         self.flush_object_cache()
+        return self
     
     def get_by_index(self, key):
         self.path.append(Vertex("__getitem__", key))
         self.flush_object_cache()
+        return self
     
     def give_pointed_object(self):
         if not self._pointed_object is None:
@@ -36,7 +39,8 @@ class NestedObjectPointer:
     
     def go_up_level(self):
         self.flush_object_cache()
-        return self.path.pop()
+        self.path.pop()
+        return self
     
     def __eq__(self,other):
         if not isinstance(other, self.__class__):
@@ -60,19 +64,38 @@ class NestedObjectPointer:
         return ret
 
 
+class ObjectView(ChainMap):
+    default_options = {
+        "limit":None,
+        "show_irrelevant":False,
+        "sort_by":None,
+        "sort_numeric":True,
+        "sort_reverse":False
+    }
+    global_options = {
+        "solo":None,
+        "SOLO":None,
+        "quiet":[]
+    }
+
+    def __init__(self, **override_options):
+        if override_options:
+            self.default_options = {**self.default_options, **override_options}
+            self.global_options = {**self.global_options, **override_options}
+        super().__init__(self.default_options.copy(), self.global_options)
+    
+    def __repr__(self):
+        return "{}({})".format(type(self).__name__,", ".join(f"{k}={v}" for k,v in self.items()))
+
+
 class NestedObjectPointerInterface(ConfigurableInterface, MetadataInterface):
-    def __init__(self):
-        self._cached_pointers = None
+    def __init__(self, pointer_to_me=None):
+        if pointer_to_me is None:
+            pointer_to_me = NestedObjectPointer(self)
+        self.pointer_to_me = pointer_to_me
+        self.objectview = ObjectView()
     
-    def flush_pointer_cache(self):
-        self._cached_pointers = None
-    
-    def give_child_pointers(self, pointer_to_me):
-        if not self._cached_pointers is None:
-            return self._cached_pointers
-        return self.enumerate_child_pointers(pointer_to_me)
-    
-    def enumerate_child_pointers(self, pointer_to_me):
+    def give_child_pointers(self):
         raise NotImplementedError()
 
     def size(self):
@@ -81,7 +104,7 @@ class NestedObjectPointerInterface(ConfigurableInterface, MetadataInterface):
     def all_result_objects(self):
         raise NotImplementedError()
     
-    def show_view(self, pointer_to_me=None, ct=0, limit=None, show_irrelevant=False, sort_by=None, sort_numeric=False, sort_reverse=False):
+    def show_view(self, ct=0, objectview=None):
         raise NotImplementedError()
 
     def exportjson(self):
