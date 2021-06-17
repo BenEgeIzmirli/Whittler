@@ -1,0 +1,11 @@
+1. Get working hello world
+
+2. Port Traversable class, with unit tests
+
+3. Port Config and ConfigurableInterface (MemoryCompressor will come later)
+
+4. Port NestedObjectPointer and NestedObjectPointerInterface, with unit tests
+
+5. Port RelevanceInterface
+
+6. 
