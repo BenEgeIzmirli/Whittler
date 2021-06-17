@@ -1,6 +1,6 @@
 [package]
-name = "HelloRust"
-version = "0.1.0"
+name = "Whittler"
+version = "0.0.1"
 authors = ["Ben Ege Izmirli", "Paul Houser", "Gideon Wolfe"]
 edition = "2018"
 
